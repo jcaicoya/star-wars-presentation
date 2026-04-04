@@ -1,6 +1,12 @@
-STAR WARS
-Console Preview
-This text is loaded from resources/text.txt.
-The first line is the title.
-The second line is the subtitle.
-Every line after that belongs to the main body.
+TITLE
+
+SUBTITLE
+
+This is the first line of the
+first paragraph. We will have
+more lines than this, I think
+so...
+
+And this is the first line of
+the second paragraph. We are
+going to have more lines too
