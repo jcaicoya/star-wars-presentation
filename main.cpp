@@ -21,6 +21,7 @@
 #include <QRandomGenerator>
 #include <QResizeEvent>
 #include <QScreen>
+#include <QShortcut>
 #include <QTextStream>
 #include <QTimer>
 #include <QTransform>
@@ -453,18 +454,12 @@ public:
         auto *toolbarLayout = new QHBoxLayout();
         toolbarLayout->setSpacing(8);
 
-        auto *editButton = new QPushButton(QStringLiteral("Edit"), this);
         auto *showButton = new QPushButton(QStringLiteral("Show"), this);
-        auto *reloadButton = new QPushButton(QStringLiteral("Reload"), this);
-        auto *saveButton = new QPushButton(QStringLiteral("Save"), this);
 
         m_statusLabel = new QLabel(this);
         m_statusLabel->setMinimumWidth(320);
 
-        toolbarLayout->addWidget(editButton);
         toolbarLayout->addWidget(showButton);
-        toolbarLayout->addWidget(reloadButton);
-        toolbarLayout->addWidget(saveButton);
         toolbarLayout->addStretch(1);
         toolbarLayout->addWidget(m_statusLabel);
 
@@ -496,56 +491,45 @@ public:
             setStatusForCurrentPath(QStringLiteral("Editing"));
         };
 
-        connect(editButton, &QPushButton::clicked, this, [this]() {
-            setStatusForCurrentPath(QStringLiteral("Editing"));
-        });
-
         connect(showButton, &QPushButton::clicked, this, [this]() {
-            if (m_crawlWindow == nullptr) {
-                m_crawlWindow = new CrawlWindow();
-                connect(m_crawlWindow, &CrawlWindow::destroyed, this, [this]() {
-                    m_crawlWindow = nullptr;
-                });
-                m_crawlWindow->onClosed = [this]() {
-                    this->showNormal();
-                    this->raise();
-                    this->activateWindow();
-                    setStatusForCurrentPath(QStringLiteral("Editing"));
-                };
-            }
-
-            m_crawlWindow->setContent(parseContent(m_editor->toPlainText()));
-            hide();
-            m_crawlWindow->openFullscreen();
-            setStatusForCurrentPath(QStringLiteral("Showing"));
+            enterShowMode();
         });
 
-        connect(reloadButton, &QPushButton::clicked, this, [this]() {
-            loadIntoEditor();
-            setStatusForCurrentPath(QStringLiteral("Reloaded"));
+        connect(m_editor->document(), &QTextDocument::modificationChanged, this, [this](bool modified) {
+            m_hasUnsavedChanges = modified;
+            setStatusForCurrentPath(modified ? QStringLiteral("Modified") : QStringLiteral("Editing"));
         });
 
-        connect(saveButton, &QPushButton::clicked, this, [this]() {
-            QString savedPath;
-            if (!saveRawText(m_editor->toPlainText(), &savedPath)) {
-                QMessageBox::warning(
-                    this,
-                    QStringLiteral("Save failed"),
-                    QStringLiteral("The file could not be saved. The embedded Qt resource is read-only at runtime.")
-                );
-                return;
-            }
-
-            setStatusForCurrentPath(QStringLiteral("Saved"), savedPath);
+        auto *saveShortcut = new QShortcut(QKeySequence::Save, this);
+        connect(saveShortcut, &QShortcut::activated, this, [this]() {
+            saveEditorContents();
         });
 
         loadIntoEditor();
         setStatusForCurrentPath(QStringLiteral("Loaded"));
+        QTimer::singleShot(0, this, [this]() {
+            enterShowMode();
+        });
     }
 
 private:
+    void closeEvent(QCloseEvent *event) override {
+        if (!confirmDiscardOrSave()) {
+            event->ignore();
+            return;
+        }
+
+        if (m_crawlWindow != nullptr) {
+            m_crawlWindow->close();
+        }
+
+        QMainWindow::closeEvent(event);
+    }
+
     void loadIntoEditor() {
         m_editor->setPlainText(loadRawText());
+        m_editor->document()->setModified(false);
+        m_hasUnsavedChanges = false;
     }
 
     void setStatusForCurrentPath(const QString &prefix, const QString &overridePath = QString()) {
@@ -553,9 +537,74 @@ private:
         m_statusLabel->setText(QStringLiteral("%1: %2").arg(prefix, path.isEmpty() ? resourceTextPath() : path));
     }
 
+    void ensureCrawlWindow() {
+        if (m_crawlWindow != nullptr) {
+            return;
+        }
+
+        m_crawlWindow = new CrawlWindow();
+        connect(m_crawlWindow, &CrawlWindow::destroyed, this, [this]() {
+            m_crawlWindow = nullptr;
+        });
+        m_crawlWindow->onClosed = [this]() {
+            this->showNormal();
+            this->raise();
+            this->activateWindow();
+            setStatusForCurrentPath(m_hasUnsavedChanges ? QStringLiteral("Modified") : QStringLiteral("Editing"));
+        };
+    }
+
+    bool saveEditorContents() {
+        QString savedPath;
+        if (!saveRawText(m_editor->toPlainText(), &savedPath)) {
+            QMessageBox::warning(
+                this,
+                QStringLiteral("Save failed"),
+                QStringLiteral("The file could not be saved. The embedded Qt resource is read-only at runtime.")
+            );
+            return false;
+        }
+
+        m_editor->document()->setModified(false);
+        m_hasUnsavedChanges = false;
+        setStatusForCurrentPath(QStringLiteral("Saved"), savedPath);
+        return true;
+    }
+
+    bool confirmDiscardOrSave() {
+        if (!m_hasUnsavedChanges) {
+            return true;
+        }
+
+        const QMessageBox::StandardButton choice = QMessageBox::question(
+            this,
+            QStringLiteral("Unsaved changes"),
+            QStringLiteral("There are unsaved changes. Do you want to save them?"),
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+            QMessageBox::Save
+        );
+
+        if (choice == QMessageBox::Cancel) {
+            return false;
+        }
+        if (choice == QMessageBox::Save) {
+            return saveEditorContents();
+        }
+        return true;
+    }
+
+    void enterShowMode() {
+        ensureCrawlWindow();
+        m_crawlWindow->setContent(parseContent(m_editor->toPlainText()));
+        hide();
+        m_crawlWindow->openFullscreen();
+        setStatusForCurrentPath(QStringLiteral("Showing"));
+    }
+
     QPlainTextEdit *m_editor = nullptr;
     QLabel *m_statusLabel = nullptr;
     CrawlWindow *m_crawlWindow = nullptr;
+    bool m_hasUnsavedChanges = false;
 };
 
 } // namespace
