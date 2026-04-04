@@ -170,7 +170,7 @@ public:
 
         m_animationTimer.setInterval(16);
         connect(&m_animationTimer, &QTimer::timeout, this, [this]() {
-            m_offset += 2.2;
+            m_offset += 1.1;
             update();
         });
     }
@@ -213,6 +213,7 @@ protected:
             const qreal bottomScreenY = viewport.bottom() + (viewport.height() * 0.02);
             const qreal topWidth = viewport.width() * 0.08;
             const qreal bottomWidth = viewport.width() * 0.92;
+            const qreal topShiftX = viewport.width() * 0.025;
             const qreal sourceTop = m_offset;
             const qreal sourceBottom = m_offset + m_sourceWindowHeight;
 
@@ -223,8 +224,8 @@ protected:
                        << QPointF(0.0, sourceBottom);
 
             QPolygonF destinationQuad;
-            destinationQuad << QPointF(viewport.center().x() - (topWidth * 0.5), topScreenY)
-                            << QPointF(viewport.center().x() + (topWidth * 0.5), topScreenY)
+            destinationQuad << QPointF(viewport.center().x() - (topWidth * 0.5) + topShiftX, topScreenY)
+                            << QPointF(viewport.center().x() + (topWidth * 0.5) + topShiftX, topScreenY)
                             << QPointF(viewport.center().x() + (bottomWidth * 0.5), bottomScreenY)
                             << QPointF(viewport.center().x() - (bottomWidth * 0.5), bottomScreenY);
 
@@ -284,6 +285,7 @@ private:
         QFont font;
         LineAlignment alignment = LineAlignment::Left;
         qreal height = 0.0;
+        qreal advance = 0.0;
         qreal spacingAfter = 0.0;
     };
 
@@ -332,27 +334,27 @@ private:
 
         const QRectF viewport = crawlViewport();
 
-        const int titleSize = std::max(28, static_cast<int>(viewport.height() / 10.5));
-        const int subtitleSize = std::max(20, static_cast<int>(viewport.height() / 16.0));
-        const int bodySize = std::max(18, static_cast<int>(viewport.height() / 21.0));
+        const int titleSize = std::max(16, static_cast<int>(viewport.height() / 18.0));
+        const int subtitleSize = std::max(16, static_cast<int>(viewport.height() / 20.0));
+        const int bodySize = std::max(14, static_cast<int>(viewport.height() / 27.0));
 
         QFont titleFont(QStringLiteral("Arial"), titleSize, QFont::Bold);
         QFont subtitleFont(QStringLiteral("Arial"), subtitleSize, QFont::DemiBold);
         QFont bodyFont(QStringLiteral("Consolas"), bodySize);
 
         if (!m_content.title.trimmed().isEmpty()) {
-            appendLine(m_content.title, titleFont, LineAlignment::Center, viewport.height() * 0.07);
+            appendLine(m_content.title, titleFont, LineAlignment::Center, viewport.height() * 0.025);
         }
 
         if (!m_content.subtitle.trimmed().isEmpty()) {
-            appendLine(m_content.subtitle, subtitleFont, LineAlignment::Center, viewport.height() * 0.1);
+            appendLine(m_content.subtitle, subtitleFont, LineAlignment::Center, viewport.height() * 0.018);
         }
 
         for (const QString &line : m_content.bodyLines) {
             if (line.trimmed().isEmpty()) {
-                appendLine(QString(), bodyFont, LineAlignment::Left, viewport.height() * 0.055);
+                appendLine(QString(), bodyFont, LineAlignment::Left, viewport.height() * 0.004);
             } else {
-                appendLine(line, bodyFont, LineAlignment::Left, viewport.height() * 0.026);
+                appendLine(line, bodyFont, LineAlignment::Left, viewport.height() * 0.0015);
             }
         }
 
@@ -366,18 +368,19 @@ private:
         line.text = text;
         line.font = font;
         line.alignment = alignment;
-        line.height = std::max(metrics.height() * 1.25, 24.0);
+        line.height = std::max(metrics.height() * 1.0, 12.0);
+        line.advance = std::max(metrics.height() * 0.92, 10.0);
         line.spacingAfter = spacingAfter;
         m_renderLines.push_back(line);
     }
 
     void renderCrawlImage() {
         const QRectF viewport = crawlViewport();
-        QFont bodyFont(QStringLiteral("Consolas"), std::max(18, static_cast<int>(viewport.height() / 21.0)));
+        QFont bodyFont(QStringLiteral("Consolas"), std::max(14, static_cast<int>(viewport.height() / 27.0)));
         const QFontMetricsF bodyMetrics(bodyFont);
         const qreal bodyColumnWidth = bodyMetrics.horizontalAdvance(QStringLiteral("X")) * 30.0;
-        m_sourceWindowHeight = std::max(320.0, viewport.height() * 1.35);
-        const qreal entryPadding = m_sourceWindowHeight * 1.05;
+        m_sourceWindowHeight = std::max(860.0, viewport.height() * 3.35);
+        const qreal entryPadding = m_sourceWindowHeight * 1.0;
         const qreal exitPadding = m_sourceWindowHeight * 0.45;
         const int imageWidth = std::max(320, static_cast<int>(std::ceil(bodyColumnWidth + 80.0)));
         const int imageHeight = std::max(240, static_cast<int>(std::ceil(entryPadding + totalContentHeight() + exitPadding)));
@@ -388,7 +391,6 @@ private:
         QPainter imagePainter(&m_crawlImage);
         imagePainter.setRenderHint(QPainter::Antialiasing, true);
         imagePainter.setRenderHint(QPainter::TextAntialiasing, true);
-        imagePainter.setPen(QColor(255, 230, 120));
 
         qreal y = entryPadding;
         for (const RenderLine &line : m_renderLines) {
@@ -396,17 +398,33 @@ private:
             const QRectF lineRect(40.0, y, imageWidth - 80.0, line.height);
             const Qt::Alignment horizontalAlignment =
                 line.alignment == LineAlignment::Center ? Qt::AlignHCenter : Qt::AlignLeft;
+
+            imagePainter.setPen(QColor(255, 215, 90, 48));
+            imagePainter.drawText(lineRect.translated(-1.0, 0.0),
+                                  horizontalAlignment | Qt::AlignVCenter,
+                                  line.text);
+            imagePainter.drawText(lineRect.translated(1.0, 0.0),
+                                  horizontalAlignment | Qt::AlignVCenter,
+                                  line.text);
+            imagePainter.drawText(lineRect.translated(0.0, -1.0),
+                                  horizontalAlignment | Qt::AlignVCenter,
+                                  line.text);
+            imagePainter.drawText(lineRect.translated(0.0, 1.0),
+                                  horizontalAlignment | Qt::AlignVCenter,
+                                  line.text);
+
+            imagePainter.setPen(QColor(255, 228, 110));
             imagePainter.drawText(lineRect,
                                   horizontalAlignment | Qt::AlignVCenter,
                                   line.text);
-            y += line.height + line.spacingAfter;
+            y += line.advance + line.spacingAfter;
         }
     }
 
     qreal totalContentHeight() const {
         qreal total = 0.0;
         for (const RenderLine &line : m_renderLines) {
-            total += line.height + line.spacingAfter;
+            total += line.advance + line.spacingAfter;
         }
         return total;
     }
