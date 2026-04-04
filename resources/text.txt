@@ -1,0 +1,6 @@
+STAR WARS
+Console Preview
+This text is loaded from resources/text.txt.
+The first line is the title.
+The second line is the subtitle.
+Every line after that belongs to the main body.

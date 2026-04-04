@@ -1,0 +1,11 @@
+.idea/
+cmake-build-*/
+build/
+out/
+*.user
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+example-*.jpg
