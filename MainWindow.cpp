@@ -24,7 +24,7 @@
 
 MainWindow::MainWindow() {
     setWindowTitle(QStringLiteral("StarWarsText"));
-    resize(1180, 780);
+    resize(1180, 940);
 
     auto *toolbar = addToolBar(QStringLiteral("Modes"));
     toolbar->setMovable(false);

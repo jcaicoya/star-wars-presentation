@@ -22,13 +22,18 @@ public:
         VideoGame
     };
 
+    enum class EndingStyle {
+        Hyperspace,
+        Hologram
+    };
+
     enum class Phase {
         Intro,
         Logo,
         Crawl,
         Spaceflight,
         ThreeStars,
-        Planet
+        Ending
     };
 
     explicit CrawlWindow(QWidget *parent = nullptr);
@@ -36,6 +41,7 @@ public:
     void setContent(const CrawlContent &content);
     void setGoalStars(const std::vector<StarDefinition> &stars);
     void setShowMode(ShowMode mode);
+    void setEndingStyle(EndingStyle style);
     void openShowWindow(bool fullscreen = false);
 
     std::function<void()> onClosed;
@@ -130,8 +136,8 @@ private:
     QPointF acquisitionShiftDirection() const;
     QRectF  messageRect() const;
     qreal   threeStarsTravelSpeed() const;
-    void    tickPlanet();
-    void    paintPlanet(QPainter &painter);
+    void    tickEnding();
+    void    paintEnding(QPainter &painter);
 
     // ── Persistent data ──────────────────────────────────────────────────────
     CrawlContent      m_content;
@@ -192,9 +198,9 @@ private:
     qreal           m_threeStarsMessageOpacity = 0.0;
     qreal           m_threeStarsMessageScale   = 0.97;
 
-    // Planet finale
-    int   m_planetTick           = 0;
-    qreal m_planetPanProgress    = 0.0;
-    qreal m_planetApproach       = 0.0;
-    qreal m_planetTextOpacity    = 0.0;
+    // Ending finale
+    int   m_endingTick           = 0;
+    qreal m_endingPanProgress    = 0.0;
+    qreal m_endingApproach       = 0.0;
+    qreal m_endingTextOpacity    = 0.0;
 };
