@@ -170,6 +170,11 @@ private:
     qreal     m_liveCrawlOverlayOpacity = 0.0;
     int       m_liveAutoTargetIndex = 0;
     bool      m_liveTargetReached = false;
+    QVector3D m_liveLegStart;
+    QVector3D m_liveLegEnd;
+    int       m_liveLegTick = 0;
+    int       m_liveLegDuration = 0;
+    bool      m_liveLegActive = false;
     bool      m_moveLeft        = false;
     bool      m_moveRight       = false;
     bool      m_moveUp          = false;

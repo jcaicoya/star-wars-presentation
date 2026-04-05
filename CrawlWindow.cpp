@@ -258,6 +258,11 @@ void CrawlWindow::transitionTo(Phase phase) {
         m_liveCrawlOverlayOpacity = (m_showMode == ShowMode::Live) ? 1.0 : 0.0;
         m_liveAutoTargetIndex = 0;
         m_liveTargetReached = false;
+        m_liveLegStart = m_shipPosition;
+        m_liveLegEnd = m_shipPosition;
+        m_liveLegTick = 0;
+        m_liveLegDuration = 0;
+        m_liveLegActive = false;
         m_moveLeft = false;
         m_moveRight = false;
         m_moveUp = false;
@@ -303,6 +308,12 @@ void CrawlWindow::advanceToNextPhase() {
             if (m_liveAutoTargetIndex + 1 < static_cast<int>(m_goalStars.size())) {
                 ++m_liveAutoTargetIndex;
                 m_liveTargetReached = false;
+                m_liveLegStart = m_shipPosition;
+                m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position;
+                m_liveLegTick = 0;
+                const float distance = (m_liveLegEnd - m_liveLegStart).length();
+                m_liveLegDuration = std::max(120, static_cast<int>(distance / 5.5f));
+                m_liveLegActive = true;
             }
         }
         break;
@@ -348,6 +359,36 @@ void CrawlWindow::tickSpaceflight() {
     ++m_spaceflightTick;
     m_spaceflightFade = std::min(1.0, static_cast<qreal>(m_spaceflightTick) / 36.0);
 
+    if (m_showMode == ShowMode::Live) {
+        if (!m_liveLegActive && !m_liveTargetReached && m_liveAutoTargetIndex < static_cast<int>(m_goalStars.size())) {
+            m_liveLegStart = m_shipPosition;
+            m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position;
+            m_liveLegTick = 0;
+            const float distance = (m_liveLegEnd - m_liveLegStart).length();
+            m_liveLegDuration = std::max(120, static_cast<int>(distance / 5.5f));
+            m_liveLegActive = true;
+        }
+
+        if (m_liveLegActive) {
+            ++m_liveLegTick;
+            const qreal t = clamp01(static_cast<qreal>(m_liveLegTick) / std::max(1, m_liveLegDuration));
+            const qreal eased = easeInOutSine(t);
+            m_shipPosition = m_liveLegStart + (m_liveLegEnd - m_liveLegStart) * eased;
+            m_shipVelocity = (m_liveLegEnd - m_liveLegStart) * static_cast<float>(1.0 / std::max(1, m_liveLegDuration));
+            m_liveCrawlOverlayOpacity = std::max(0.0, m_liveCrawlOverlayOpacity - (1.0 / 48.0));
+
+            if (m_liveLegTick >= m_liveLegDuration) {
+                m_shipPosition = m_liveLegEnd;
+                m_shipVelocity = QVector3D();
+                m_liveLegActive = false;
+                m_liveTargetReached = true;
+            }
+        }
+
+        recycleSpaceStars();
+        return;
+    }
+
     QVector3D desired;
     if (m_moveLeft)     desired.setX(desired.x() - 1.0f);
     if (m_moveRight)    desired.setX(desired.x() + 1.0f);
@@ -359,19 +400,11 @@ void CrawlWindow::tickSpaceflight() {
     if (!desired.isNull())
         desired.normalize();
 
-    if (m_showMode == ShowMode::Live && !m_liveTargetReached &&
-        m_liveAutoTargetIndex < static_cast<int>(m_goalStars.size())) {
-        const QVector3D toTarget = m_goalStars[m_liveAutoTargetIndex].position - m_shipPosition;
-        QVector3D autoDesired(toTarget.x(), toTarget.y(), toTarget.z());
-        if (!autoDesired.isNull())
-            autoDesired.normalize();
-        desired = autoDesired;
-        m_liveCrawlOverlayOpacity = std::max(0.0, m_liveCrawlOverlayOpacity - (1.0 / 48.0));
-    }
-
-    const QVector3D acceleration(desired.x() * 1.8f, desired.y() * 1.5f, desired.z() * 2.8f);
-    m_shipVelocity += acceleration;
+    if (!desired.isNull())
+        desired.normalize();
+    QVector3D acceleration(desired.x() * 1.8f, desired.y() * 1.5f, desired.z() * 2.8f);
     m_shipVelocity *= 0.88f;
+    m_shipVelocity += acceleration;
 
     const float maxLateral = 7.5f;
     const float maxForward = 11.0f;
@@ -390,16 +423,6 @@ void CrawlWindow::tickSpaceflight() {
     m_shipPosition.setX(std::clamp(m_shipPosition.x(), kSpaceMinX, kSpaceMaxX));
     m_shipPosition.setY(std::clamp(m_shipPosition.y(), kSpaceMinY, kSpaceMaxY));
     m_shipPosition.setZ(std::clamp(m_shipPosition.z(), kSpaceMinZ, kSpaceMaxZ));
-
-    if (m_showMode == ShowMode::Live && m_liveAutoTargetIndex < static_cast<int>(m_goalStars.size())) {
-        const QVector3D toTarget = m_goalStars[m_liveAutoTargetIndex].position - m_shipPosition;
-        if (toTarget.length() < 120.0f) {
-            m_liveTargetReached = true;
-            m_shipVelocity *= 0.82f;
-            if (m_shipVelocity.length() < 0.3f)
-                m_shipVelocity = QVector3D();
-        }
-    }
 
     recycleSpaceStars();
 }
