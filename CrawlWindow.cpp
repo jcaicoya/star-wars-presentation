@@ -733,7 +733,7 @@ void CrawlWindow::paintSpaceScene(QPainter &painter, const bool showGoalText, co
         const QPointF point = projectSpacePoint(goal.position, &scale);
         const qreal distance = relative.length();
         const qreal emphasis = clamp01(1.0 - distance / 700.0);
-        const qreal radius = std::max<qreal>(1.2, goal.radius * 0.22 + scale * 22.0);
+        const qreal radius = std::max<qreal>(0.9, goal.radius * 0.16 + scale * 16.0);
         const qreal glowRadius = radius * (2.4 + emphasis * 1.8);
 
         QRadialGradient glow(point, glowRadius, point);
