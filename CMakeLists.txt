@@ -6,7 +6,11 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-set(CMAKE_PREFIX_PATH "C:/Qt/6.7.3/msvc2022_64")
+if (WIN32)
+    set(CMAKE_PREFIX_PATH "C:/Qt/6.7.3/msvc2022_64")
+else ()
+    set(CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.10.1/gcc_64")
+endif ()
 
 find_package(Qt6 COMPONENTS
         Core
