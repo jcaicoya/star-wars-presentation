@@ -909,7 +909,7 @@ void CrawlWindow::paintThreeStars(QPainter &painter) {
         paintStar(message, target, travel, acquisition, 1.0, m_currentMessageIndex == 2);
     }
 
-    if (m_threeStarsMessageOpacity > 0.0) {
+    if (m_threeStarsMessageOpacity > 0.0 && !message.text.trimmed().isEmpty()) {
         const QRectF rect = messageRect();
         const int fontSize = std::max(24, static_cast<int>(height() * 0.06));
         QFont font(QStringLiteral("Arial"), fontSize, QFont::DemiBold);
