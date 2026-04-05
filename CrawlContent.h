@@ -16,5 +16,7 @@ struct CrawlContent {
 struct Star {
     QPointF position;
     qreal radius = 1.0;
+    qreal depth  = 0.5;
+    qreal twinklePhase = 0.0;
     QColor color;
 };
