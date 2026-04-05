@@ -14,10 +14,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 
 namespace {
 
 constexpr qreal kPi = 3.14159265358979323846;
+constexpr float kSpaceMinX = -640.0f;
+constexpr float kSpaceMaxX =  640.0f;
+constexpr float kSpaceMinY = -520.0f;
+constexpr float kSpaceMaxY =  440.0f;
+constexpr float kSpaceMinZ =    0.0f;
+constexpr float kSpaceMaxZ = 2360.0f;
 
 qreal clamp01(const qreal value) {
     return std::clamp(value, 0.0, 1.0);
@@ -326,6 +333,17 @@ void CrawlWindow::tickSpaceflight() {
     m_shipVelocity.setZ(std::clamp(m_shipVelocity.z(), -maxForward, maxForward));
     m_shipPosition += m_shipVelocity;
 
+    if (m_shipPosition.x() <= kSpaceMinX || m_shipPosition.x() >= kSpaceMaxX)
+        m_shipVelocity.setX(0.0f);
+    if (m_shipPosition.y() <= kSpaceMinY || m_shipPosition.y() >= kSpaceMaxY)
+        m_shipVelocity.setY(0.0f);
+    if (m_shipPosition.z() <= kSpaceMinZ || m_shipPosition.z() >= kSpaceMaxZ)
+        m_shipVelocity.setZ(0.0f);
+
+    m_shipPosition.setX(std::clamp(m_shipPosition.x(), kSpaceMinX, kSpaceMaxX));
+    m_shipPosition.setY(std::clamp(m_shipPosition.y(), kSpaceMinY, kSpaceMaxY));
+    m_shipPosition.setZ(std::clamp(m_shipPosition.z(), kSpaceMinZ, kSpaceMaxZ));
+
     recycleSpaceStars();
 }
 
@@ -620,7 +638,6 @@ void CrawlWindow::paintSpaceflight(QPainter &painter) {
     painter.setPen(Qt::NoPen);
 
     const qreal phaseTime = m_elapsedTimer.isValid() ? static_cast<qreal>(m_elapsedTimer.elapsed()) / 1000.0 : 0.0;
-    const qreal shipSpeed = std::min<qreal>(1.0, m_shipVelocity.length() / 10.0);
 
     for (const SpaceStar &star : m_spaceStars) {
         const QVector3D relative = star.position - m_shipPosition;
@@ -636,28 +653,21 @@ void CrawlWindow::paintSpaceflight(QPainter &painter) {
         const qreal twinkle = 0.55 + 0.45 * std::sin(phaseTime * (0.7 + star.radius * 0.25) + star.twinklePhase);
         color.setAlpha(std::clamp(static_cast<int>(70 + 130 * twinkle), 0, 255));
 
-        const qreal radius = std::max(0.55, star.radius * scale * 26.0);
-        if (shipSpeed > 0.08) {
-            QVector3D direction3D = -m_shipVelocity;
-            if (!direction3D.isNull()) {
-                direction3D.normalize();
-                const QPointF trailVector(direction3D.x() * (12.0 + 40.0 * shipSpeed) * scale * 5.0,
-                                          direction3D.y() * (12.0 + 40.0 * shipSpeed) * scale * 5.0);
-                QLinearGradient trail(point, point + trailVector);
-                trail.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), color.alpha()));
-                trail.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0));
-                painter.setPen(QPen(QBrush(trail), std::max(1.0, radius * 0.9), Qt::SolidLine, Qt::RoundCap));
-                painter.drawLine(point, point + trailVector);
-                painter.setPen(Qt::NoPen);
-            }
-        }
-
+        const qreal radius = std::max(0.35, star.radius * scale * 16.0);
         painter.setBrush(color);
         painter.drawEllipse(point, radius, radius);
     }
 
-    for (int i = 0; i < static_cast<int>(m_goalStars.size()); ++i) {
-        const GoalStar &goal = m_goalStars[i];
+    std::vector<int> goalOrder(m_goalStars.size());
+    std::iota(goalOrder.begin(), goalOrder.end(), 0);
+    std::stable_sort(goalOrder.begin(), goalOrder.end(), [this](const int lhs, const int rhs) {
+        const float lhsZ = (m_goalStars[lhs].position - m_shipPosition).z();
+        const float rhsZ = (m_goalStars[rhs].position - m_shipPosition).z();
+        return lhsZ > rhsZ;
+    });
+
+    for (const int index : goalOrder) {
+        const GoalStar &goal = m_goalStars[index];
         const QVector3D relative = goal.position - m_shipPosition;
         if (relative.z() <= 12.0f)
             continue;
@@ -701,6 +711,55 @@ void CrawlWindow::paintSpaceflight(QPainter &painter) {
         painter.setPen(QColor(248, 246, 240));
         painter.drawText(rect, Qt::AlignCenter | Qt::TextWordWrap, goal.message);
     }
+
+    const QRectF cubeRect(width() - 210.0, 24.0, 170.0, 170.0);
+    const QPointF depthOffset(20.0, -20.0);
+    const QRectF backRect = cubeRect.translated(depthOffset);
+    const QColor cubeColor(120, 255, 150, 150);
+
+    painter.setBrush(QColor(20, 60, 28, 28));
+    painter.setPen(QPen(cubeColor, 1.5));
+    painter.drawRect(cubeRect);
+    painter.drawRect(backRect);
+    painter.drawLine(cubeRect.topLeft(), backRect.topLeft());
+    painter.drawLine(cubeRect.topRight(), backRect.topRight());
+    painter.drawLine(cubeRect.bottomLeft(), backRect.bottomLeft());
+    painter.drawLine(cubeRect.bottomRight(), backRect.bottomRight());
+
+    const qreal nx = (m_shipPosition.x() - kSpaceMinX) / (kSpaceMaxX - kSpaceMinX);
+    const qreal ny = (m_shipPosition.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY);
+    const qreal nz = (m_shipPosition.z() - kSpaceMinZ) / (kSpaceMaxZ - kSpaceMinZ);
+    const QPointF mapPoint(
+        cubeRect.left() + cubeRect.width() * nx + depthOffset.x() * (1.0 - nz),
+        cubeRect.bottom() - cubeRect.height() * ny + depthOffset.y() * (1.0 - nz));
+
+    for (const GoalStar &goal : m_goalStars) {
+        const qreal gx = (goal.position.x() - kSpaceMinX) / (kSpaceMaxX - kSpaceMinX);
+        const qreal gy = (goal.position.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY);
+        const qreal gz = (goal.position.z() - kSpaceMinZ) / (kSpaceMaxZ - kSpaceMinZ);
+        const QPointF goalPoint(
+            cubeRect.left() + cubeRect.width() * gx + depthOffset.x() * (1.0 - gz),
+            cubeRect.bottom() - cubeRect.height() * gy + depthOffset.y() * (1.0 - gz));
+        painter.setBrush(QColor(goal.coreColor.red(), goal.coreColor.green(), goal.coreColor.blue(), 220));
+        painter.setPen(QPen(QColor(goal.glowColor.red(), goal.glowColor.green(), goal.glowColor.blue(), 180), 1.0));
+        painter.drawEllipse(goalPoint, 3.8, 3.8);
+    }
+
+    painter.setBrush(QColor(140, 255, 170, 220));
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(mapPoint, 5.0, 5.0);
+
+    painter.setPen(QColor(140, 255, 170, 190));
+    painter.setFont(QFont(QStringLiteral("Consolas"), 10));
+    painter.drawText(QRectF(cubeRect.left(), cubeRect.bottom() + 8.0, cubeRect.width(), 18.0),
+                     Qt::AlignLeft | Qt::AlignVCenter,
+                     QStringLiteral("Ship position"));
+    painter.drawText(QRectF(cubeRect.left(), cubeRect.bottom() + 26.0, cubeRect.width(), 18.0),
+                     Qt::AlignLeft | Qt::AlignVCenter,
+                     QStringLiteral("x:%1  y:%2  z:%3")
+                         .arg(static_cast<int>(std::lround(m_shipPosition.x())))
+                         .arg(static_cast<int>(std::lround(m_shipPosition.y())))
+                         .arg(static_cast<int>(std::lround(m_shipPosition.z()))));
 }
 
 void CrawlWindow::paintThreeStars(QPainter &painter) {
@@ -1017,38 +1076,45 @@ qreal CrawlWindow::totalContentHeight() const {
 }
 
 void CrawlWindow::initializeSpaceflightScene() {
-    m_shipPosition = QVector3D(0.0f, 0.0f, 0.0f);
+    m_shipPosition = QVector3D(0.0f, 0.0f, kSpaceMinZ);
     m_shipVelocity = QVector3D();
 
     if (m_goalStars.empty()) {
         m_goalStars = {
             {
                 QStringLiteral("Move fast. Don't run."),
-                QVector3D(0.0f, 40.0f, 260.0f),
+                QVector3D(-540.0f, 260.0f, 520.0f),
                 QColor(230, 242, 255),
                 QColor(130, 190, 255, 210),
-                7.5
+                6.5
             },
             {
                 QStringLiteral("Create more than before."),
-                QVector3D(240.0f, 40.0f, 640.0f),
-                QColor(255, 246, 220),
-                QColor(255, 205, 120, 220),
-                8.0
+                QVector3D(620.0f, -320.0f, 1280.0f),
+                QColor(255, 214, 120),
+                QColor(255, 154, 70, 220),
+                6.8
             },
             {
                 QStringLiteral("The purpose is people."),
-                QVector3D(240.0f, -200.0f, 1040.0f),
-                QColor(255, 238, 215),
-                QColor(255, 176, 120, 215),
-                8.5
+                QVector3D(-620.0f, -420.0f, 2100.0f),
+                QColor(255, 184, 110),
+                QColor(255, 132, 68, 220),
+                7.0
+            },
+            {
+                QStringLiteral("Stay curious. Keep building."),
+                QVector3D(560.0f, 360.0f, 2280.0f),
+                QColor(196, 160, 255),
+                QColor(142, 96, 255, 220),
+                7.2
             }
         };
     }
 
     m_spaceStars.clear();
     auto *random = QRandomGenerator::global();
-    constexpr int kSpaceStarCount = 900;
+    constexpr int kSpaceStarCount = 280;
 
     for (int i = 0; i < kSpaceStarCount; ++i) {
         SpaceStar star;
@@ -1056,7 +1122,7 @@ void CrawlWindow::initializeSpaceflightScene() {
             static_cast<float>(random->bounded(-1400, 1401)),
             static_cast<float>(random->bounded(-1000, 1001)),
             static_cast<float>(random->bounded(40, 2600)));
-        star.radius = 0.5 + random->bounded(140) / 100.0;
+        star.radius = 0.25 + random->bounded(70) / 100.0;
         star.twinklePhase = random->bounded(628) / 100.0;
         const int brightness = 165 + random->bounded(90);
         const int blueTint   = 200 + random->bounded(55);
