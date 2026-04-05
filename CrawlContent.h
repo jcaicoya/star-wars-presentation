@@ -6,8 +6,10 @@
 #include <QStringList>
 
 struct CrawlContent {
-    QString title;
-    QString subtitle;
+    QString     intro;
+    QString     logo;
+    QString     title;
+    QString     subtitle;
     QStringList bodyLines;
 };
 

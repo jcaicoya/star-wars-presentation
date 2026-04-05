@@ -1,7 +1,16 @@
+[intro]
+A long time ago, three weeks or so...
+
+[logo]
+RBI Wars
+
+[title]
 Episode AI
 
+[subtitle]
 A NEW PROMPT
 
+[body]
 It is a period of rapid prototyping.
 
 Rebel engineers, striking from

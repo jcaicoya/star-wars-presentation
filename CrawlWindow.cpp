@@ -125,9 +125,15 @@ void CrawlWindow::transitionTo(Phase phase) {
 
 // ── Per-phase tick ────────────────────────────────────────────────────────────
 
+static constexpr int kIntroFadeInTicks  = 75;   // ~1.2 s
+static constexpr int kIntroHoldTicks    = 150;  // ~2.4 s
+static constexpr int kIntroFadeOutTicks = 75;   // ~1.2 s
+static constexpr int kIntroTotalTicks   = kIntroFadeInTicks + kIntroHoldTicks + kIntroFadeOutTicks;
+
 void CrawlWindow::tickIntro() {
-    // TODO: fade-in/out "A long time ago, in a galaxy far, far away..."
-    transitionTo(Phase::Logo);
+    ++m_introTick;
+    if (m_introTick >= kIntroTotalTicks)
+        transitionTo(Phase::Logo);
 }
 
 void CrawlWindow::tickLogo() {
@@ -156,8 +162,23 @@ void CrawlWindow::paintStarfield(QPainter &painter) {
 }
 
 void CrawlWindow::paintIntro(QPainter &painter) {
-    // TODO: render intro text with fade in/out
-    Q_UNUSED(painter);
+    int alpha;
+    if (m_introTick < kIntroFadeInTicks) {
+        alpha = (m_introTick * 255) / kIntroFadeInTicks;
+    } else if (m_introTick < kIntroFadeInTicks + kIntroHoldTicks) {
+        alpha = 255;
+    } else {
+        const int fadeOutTick = m_introTick - kIntroFadeInTicks - kIntroHoldTicks;
+        alpha = 255 - (fadeOutTick * 255) / kIntroFadeOutTicks;
+    }
+    alpha = std::clamp(alpha, 0, 255);
+
+    const int fontSize = std::max(16, static_cast<int>(height() * 0.042));
+    QFont font(QStringLiteral("Arial"), fontSize, QFont::Normal, /*italic=*/true);
+
+    painter.setFont(font);
+    painter.setPen(QColor(100, 180, 220, alpha));
+    painter.drawText(rect(), Qt::AlignCenter, m_content.intro);
 }
 
 void CrawlWindow::paintLogo(QPainter &painter) {

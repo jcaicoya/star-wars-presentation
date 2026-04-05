@@ -65,6 +65,10 @@ bool saveRawText(const QString &text, QString *savedPath) {
     return true;
 }
 
+// Parses a section-based text file.
+// Each [section] header introduces a block that runs until the next header or EOF.
+// Leading/trailing blank lines within each block are stripped.
+// Unknown section names are silently ignored.
 CrawlContent parseContent(const QString &rawText) {
     QString normalized = rawText;
     normalized.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
@@ -72,25 +76,44 @@ CrawlContent parseContent(const QString &rawText) {
 
     const QStringList lines = normalized.split(QChar::LineFeed, Qt::KeepEmptyParts);
 
+    // Collect raw lines per section name, preserving order of appearance
+    QMap<QString, QStringList> sections;
+    QString currentSection;
+
+    for (const QString &line : lines) {
+        const QString trimmed = line.trimmed();
+        if (trimmed.startsWith(QLatin1Char('[')) && trimmed.endsWith(QLatin1Char(']'))) {
+            currentSection = trimmed.mid(1, trimmed.size() - 2).toLower();
+        } else if (!currentSection.isEmpty()) {
+            sections[currentSection].append(line);
+        }
+    }
+
+    // Strip leading and trailing blank lines from a section's line list
+    auto trim = [](QStringList block) -> QStringList {
+        while (!block.isEmpty() && block.first().trimmed().isEmpty())
+            block.removeFirst();
+        while (!block.isEmpty() && block.last().trimmed().isEmpty())
+            block.removeLast();
+        return block;
+    };
+
     CrawlContent content;
-    int index = 0;
 
-    while (index < lines.size() && lines.at(index).trimmed().isEmpty())
-        ++index;
-    if (index < lines.size()) {
-        content.title = lines.at(index).trimmed();
-        ++index;
-    }
+    if (sections.contains(QStringLiteral("intro")))
+        content.intro = trim(sections[QStringLiteral("intro")]).join(QLatin1Char('\n'));
 
-    while (index < lines.size() && lines.at(index).trimmed().isEmpty())
-        ++index;
-    if (index < lines.size()) {
-        content.subtitle = lines.at(index).trimmed();
-        ++index;
-    }
+    if (sections.contains(QStringLiteral("logo")))
+        content.logo = trim(sections[QStringLiteral("logo")]).join(QLatin1Char('\n'));
 
-    for (; index < lines.size(); ++index)
-        content.bodyLines.append(lines.at(index));
+    if (sections.contains(QStringLiteral("title")))
+        content.title = trim(sections[QStringLiteral("title")]).join(QLatin1Char('\n'));
+
+    if (sections.contains(QStringLiteral("subtitle")))
+        content.subtitle = trim(sections[QStringLiteral("subtitle")]).join(QLatin1Char('\n'));
+
+    if (sections.contains(QStringLiteral("body")))
+        content.bodyLines = sections[QStringLiteral("body")];
 
     return content;
 }
