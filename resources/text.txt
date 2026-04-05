@@ -2,8 +2,8 @@
 A long time ago, three weeks or so...
 
 [logo]
+PROJECT
 RBI
-WARS
 
 [title]
 Episode AI
