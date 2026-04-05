@@ -2,7 +2,8 @@
 A long time ago, three weeks or so...
 
 [logo]
-RBI Wars
+RBI
+WARS
 
 [title]
 Episode AI

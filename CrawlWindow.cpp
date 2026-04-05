@@ -136,9 +136,12 @@ void CrawlWindow::tickIntro() {
         transitionTo(Phase::Logo);
 }
 
+static constexpr int kLogoTotalTicks = 420; // ~6.7 s
+
 void CrawlWindow::tickLogo() {
-    // TODO: Star Wars logo zoom-out from center
-    transitionTo(Phase::Crawl);
+    ++m_logoTick;
+    if (m_logoTick >= kLogoTotalTicks)
+        transitionTo(Phase::Crawl);
 }
 
 void CrawlWindow::tickCrawl() {
@@ -182,8 +185,39 @@ void CrawlWindow::paintIntro(QPainter &painter) {
 }
 
 void CrawlWindow::paintLogo(QPainter &painter) {
-    // TODO: render Star Wars logo with zoom-out effect
-    Q_UNUSED(painter);
+    if (m_content.logo.isEmpty())
+        return;
+
+    const qreal t = static_cast<qreal>(m_logoTick) / kLogoTotalTicks;
+
+    // Exponential scale: starts filling the screen, shrinks to nothing
+    const qreal scale = 4.0 * std::pow(0.01, t);
+
+    // Fade out in the final 15%
+    const int alpha = (t < 0.85)
+        ? 255
+        : static_cast<int>(255.0 * (1.0 - (t - 0.85) / 0.15));
+
+    const int baseFontSize = std::max(16, static_cast<int>(height() * 0.13));
+    QFont font(QStringLiteral("Arial Black"), baseFontSize);
+    font.setLetterSpacing(QFont::AbsoluteSpacing, baseFontSize * 0.12);
+
+    const QFontMetricsF metrics(font);
+    const QStringList logoLines = m_content.logo.split(QLatin1Char('\n'));
+    qreal textW = 0.0;
+    for (const QString &line : logoLines)
+        textW = std::max(textW, metrics.horizontalAdvance(line));
+    const qreal lineH = metrics.height();
+    const qreal textH = lineH * logoLines.size();
+
+    painter.save();
+    painter.translate(width() * 0.5, height() * 0.5);
+    painter.scale(scale, scale);
+    painter.setFont(font);
+    painter.setPen(QColor(255, 220, 0, std::clamp(alpha, 0, 255)));
+    painter.drawText(QRectF(-textW * 0.5, -textH * 0.5, textW, textH),
+                     Qt::AlignCenter, m_content.logo);
+    painter.restore();
 }
 
 void CrawlWindow::paintCrawl(QPainter &painter) {
