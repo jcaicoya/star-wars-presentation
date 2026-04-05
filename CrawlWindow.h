@@ -106,6 +106,7 @@ private:
     qreal                   m_crawlOffset         = 0.0;
     qreal                   m_crawlTriggerOffset  = 0.0; // offset at which outro is triggered
     qreal                   m_cameraTilt          = 0.0; // 0 = normal, 1 = fully tilted down
+    qreal                   m_starDriftY          = 0.0; // cumulative upward star drift (camera pan)
 
     // Outro phase  (reserved for implementation)
     int m_outroTick = 0;

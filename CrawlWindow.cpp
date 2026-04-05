@@ -122,10 +122,12 @@ void CrawlWindow::transitionTo(Phase phase) {
     case Phase::Crawl:
         m_crawlOffset = 0.0;
         m_cameraTilt  = 0.0;
+        m_starDriftY  = 0.0;
         rebuildLines();
         break;
     case Phase::Outro:
-        m_outroTick = 0;
+        m_outroTick  = 0;
+        m_starDriftY = 0.0;
         break;
     }
 }
@@ -179,13 +181,16 @@ void CrawlWindow::tickOutro() {
     ++m_outroTick;
 
     if (m_outroTick <= kOutroCameraPanTicks) {
-        // Camera tilts down: scroll accelerates as the horizon rises
+        // Camera tilts down: scroll accelerates, stars drift upward with the tilt
         m_cameraTilt   = static_cast<qreal>(m_outroTick) / kOutroCameraPanTicks;
         m_crawlOffset += scrollStep() * (1.0 + m_cameraTilt * 4.0);
+        m_starDriftY  += scrollStep() * m_cameraTilt * 2.0;
     } else if (m_outroTick <= kOutroCameraPanTicks + kOutroCrawlFadeTicks) {
-        // Camera fully tilted, crawl still scrolling while fading
+        // Camera fully tilted, crawl fades — stars keep drifting at peak speed
         m_crawlOffset += scrollStep() * 5.0;
+        m_starDriftY  += scrollStep() * 2.0;
     }
+    // Stars are still during glow and flash phases
 
     if (m_outroTick >= kOutroTotalTicks) {
         m_animationTimer.stop();
@@ -198,9 +203,13 @@ void CrawlWindow::tickOutro() {
 void CrawlWindow::paintStarfield(QPainter &painter) {
     painter.fillRect(rect(), QColor(0, 0, 0));
     painter.setPen(Qt::NoPen);
+    const qreal h = std::max(1, height());
     for (const Star &star : m_stars) {
+        // Apply vertical drift with wrapping so stars tile seamlessly
+        qreal y = star.position.y() - m_starDriftY;
+        y -= std::floor(y / h) * h;
         painter.setBrush(star.color);
-        painter.drawEllipse(star.position, star.radius, star.radius);
+        painter.drawEllipse(QPointF(star.position.x(), y), star.radius, star.radius);
     }
 }
 
