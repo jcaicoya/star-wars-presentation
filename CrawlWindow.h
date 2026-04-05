@@ -34,6 +34,7 @@ public:
     explicit CrawlWindow(QWidget *parent = nullptr);
 
     void setContent(const CrawlContent &content);
+    void setGoalStars(const std::vector<StarDefinition> &stars);
     void setShowMode(ShowMode mode);
     void openShowWindow(bool fullscreen = false);
 
@@ -78,14 +79,6 @@ private:
         qreal     radius = 1.0;
         qreal     twinklePhase = 0.0;
         QColor    color;
-    };
-
-    struct GoalStar {
-        QString   message;
-        QVector3D position;
-        QColor    coreColor;
-        QColor    glowColor;
-        qreal     radius = 1.0;
     };
 
     // ── Viewport / scroll ────────────────────────────────────────────────────
@@ -144,7 +137,7 @@ private:
     std::vector<Star> m_stars;
     std::vector<StarMessage> m_starMessages;
     std::vector<SpaceStar>   m_spaceStars;
-    std::vector<GoalStar>    m_goalStars;
+    std::vector<StarDefinition> m_goalStars;
     QTimer            m_animationTimer;
     QElapsedTimer     m_elapsedTimer;
     bool              m_hasInitializedWindowGeometry = false;

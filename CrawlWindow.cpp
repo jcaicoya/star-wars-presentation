@@ -1,4 +1,5 @@
 #include "CrawlWindow.h"
+#include "TextIO.h"
 
 #include <QCloseEvent>
 #include <QFontMetrics>
@@ -107,6 +108,23 @@ CrawlWindow::CrawlWindow(QWidget *parent)
 
 void CrawlWindow::setContent(const CrawlContent &content) {
     m_content = content;
+}
+
+void CrawlWindow::setGoalStars(const std::vector<StarDefinition> &stars) {
+    m_goalStars = stars;
+    m_starMessages.clear();
+    m_starMessages.reserve(m_goalStars.size());
+
+    for (const StarDefinition &star : m_goalStars) {
+        const qreal nx = clamp01((star.position.x() - kSpaceMinX) / (kSpaceMaxX - kSpaceMinX));
+        const qreal ny = clamp01((star.position.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY));
+        m_starMessages.push_back({
+            star.text,
+            QPointF(nx, ny),
+            star.coreColor,
+            star.glowColor
+        });
+    }
 }
 
 void CrawlWindow::setShowMode(const ShowMode mode) {
@@ -667,7 +685,7 @@ void CrawlWindow::paintSpaceflight(QPainter &painter) {
     });
 
     for (const int index : goalOrder) {
-        const GoalStar &goal = m_goalStars[index];
+        const StarDefinition &goal = m_goalStars[index];
         const QVector3D relative = goal.position - m_shipPosition;
         if (relative.z() <= 12.0f)
             continue;
@@ -699,17 +717,17 @@ void CrawlWindow::paintSpaceflight(QPainter &painter) {
 
     const int goalIndex = activeGoalStarIndex();
     if (goalIndex >= 0) {
-        const GoalStar &goal = m_goalStars[goalIndex];
+        const StarDefinition &goal = m_goalStars[goalIndex];
         const QRectF rect(width() * 0.18, height() * 0.72, width() * 0.64, height() * 0.14);
         QFont font(QStringLiteral("Arial"), std::max(24, static_cast<int>(height() * 0.055)), QFont::DemiBold);
 
         painter.setFont(font);
         painter.setPen(QColor(goal.glowColor.red(), goal.glowColor.green(), goal.glowColor.blue(), 120));
         for (const QPointF &d : {QPointF(-2, 0), QPointF(2, 0), QPointF(0, -2), QPointF(0, 2)})
-            painter.drawText(rect.translated(d), Qt::AlignCenter | Qt::TextWordWrap, goal.message);
+            painter.drawText(rect.translated(d), Qt::AlignCenter | Qt::TextWordWrap, goal.text);
 
         painter.setPen(QColor(248, 246, 240));
-        painter.drawText(rect, Qt::AlignCenter | Qt::TextWordWrap, goal.message);
+        painter.drawText(rect, Qt::AlignCenter | Qt::TextWordWrap, goal.text);
     }
 
     const QRectF cubeRect(width() - 210.0, 24.0, 170.0, 170.0);
@@ -733,7 +751,7 @@ void CrawlWindow::paintSpaceflight(QPainter &painter) {
         cubeRect.left() + cubeRect.width() * nx + depthOffset.x() * (1.0 - nz),
         cubeRect.bottom() - cubeRect.height() * ny + depthOffset.y() * (1.0 - nz));
 
-    for (const GoalStar &goal : m_goalStars) {
+    for (const StarDefinition &goal : m_goalStars) {
         const qreal gx = (goal.position.x() - kSpaceMinX) / (kSpaceMaxX - kSpaceMinX);
         const qreal gy = (goal.position.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY);
         const qreal gz = (goal.position.z() - kSpaceMinZ) / (kSpaceMaxZ - kSpaceMinZ);
@@ -1079,38 +1097,8 @@ void CrawlWindow::initializeSpaceflightScene() {
     m_shipPosition = QVector3D(0.0f, 0.0f, kSpaceMinZ);
     m_shipVelocity = QVector3D();
 
-    if (m_goalStars.empty()) {
-        m_goalStars = {
-            {
-                QStringLiteral("Move fast. Don't run."),
-                QVector3D(-540.0f, 260.0f, 520.0f),
-                QColor(230, 242, 255),
-                QColor(130, 190, 255, 210),
-                6.5
-            },
-            {
-                QStringLiteral("Create more than before."),
-                QVector3D(620.0f, -320.0f, 1280.0f),
-                QColor(255, 214, 120),
-                QColor(255, 154, 70, 220),
-                6.8
-            },
-            {
-                QStringLiteral("The purpose is people."),
-                QVector3D(-620.0f, -420.0f, 2100.0f),
-                QColor(255, 184, 110),
-                QColor(255, 132, 68, 220),
-                7.0
-            },
-            {
-                QStringLiteral("Stay curious. Keep building."),
-                QVector3D(560.0f, 360.0f, 2280.0f),
-                QColor(196, 160, 255),
-                QColor(142, 96, 255, 220),
-                7.2
-            }
-        };
-    }
+    if (m_goalStars.empty())
+        setGoalStars(parseStars(loadRawStars()));
 
     m_spaceStars.clear();
     auto *random = QRandomGenerator::global();
@@ -1169,7 +1157,7 @@ int CrawlWindow::activeGoalStarIndex() const {
     qreal bestScore = 1e9;
 
     for (int i = 0; i < static_cast<int>(m_goalStars.size()); ++i) {
-        const GoalStar &goal = m_goalStars[i];
+        const StarDefinition &goal = m_goalStars[i];
         const QVector3D relative = goal.position - m_shipPosition;
         if (relative.z() <= 12.0f)
             continue;

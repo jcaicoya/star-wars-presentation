@@ -1,6 +1,9 @@
 #include "TextIO.h"
 
 #include <QCoreApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -8,6 +11,10 @@
 
 QString resourceTextPath() {
     return QStringLiteral(":/text.txt");
+}
+
+QString resourceStarsPath() {
+    return QStringLiteral(":/stars.json");
 }
 
 static QStringList candidateTextPaths() {
@@ -18,8 +25,25 @@ static QStringList candidateTextPaths() {
     return {currentPath, nearBinary, aboveBinary};
 }
 
+static QStringList candidateStarsPaths() {
+    const QString currentPath  = QDir::cleanPath(QDir::current().filePath(QStringLiteral("resources/stars.json")));
+    const QString appDir       = QCoreApplication::applicationDirPath();
+    const QString nearBinary   = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../resources/stars.json")));
+    const QString aboveBinary  = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../../resources/stars.json")));
+    return {currentPath, nearBinary, aboveBinary};
+}
+
 QString editableTextPath() {
     const QStringList candidates = candidateTextPaths();
+    for (const QString &path : candidates) {
+        if (QFileInfo::exists(path))
+            return path;
+    }
+    return candidates.isEmpty() ? QString() : candidates.first();
+}
+
+QString editableStarsPath() {
+    const QStringList candidates = candidateStarsPaths();
     for (const QString &path : candidates) {
         if (QFileInfo::exists(path))
             return path;
@@ -46,6 +70,21 @@ QString loadRawText() {
     return QString();
 }
 
+QString loadRawStars() {
+    const QString diskPath = editableStarsPath();
+    if (!diskPath.isEmpty()) {
+        QFile diskFile(diskPath);
+        if (diskFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            return QString::fromUtf8(diskFile.readAll());
+    }
+
+    QFile resourceFile(resourceStarsPath());
+    if (resourceFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return QString::fromUtf8(resourceFile.readAll());
+
+    return QString();
+}
+
 bool saveRawText(const QString &text, QString *savedPath) {
     const QString path = editableTextPath();
     if (path.isEmpty())
@@ -60,6 +99,24 @@ bool saveRawText(const QString &text, QString *savedPath) {
 
     QTextStream stream(&file);
     stream << text;
+    if (savedPath != nullptr)
+        *savedPath = path;
+    return true;
+}
+
+bool saveRawStars(const QString &text, QString *savedPath) {
+    const QString path = editableStarsPath();
+    if (path.isEmpty())
+        return false;
+
+    QFileInfo info(path);
+    QDir().mkpath(info.absolutePath());
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
+        return false;
+
+    file.write(text.toUtf8());
     if (savedPath != nullptr)
         *savedPath = path;
     return true;
@@ -116,4 +173,44 @@ CrawlContent parseContent(const QString &rawText) {
         content.bodyLines = sections[QStringLiteral("body")];
 
     return content;
+}
+
+std::vector<StarDefinition> parseStars(const QString &rawText) {
+    std::vector<StarDefinition> stars;
+
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(rawText.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject())
+        return stars;
+
+    const QJsonArray starArray = document.object().value(QStringLiteral("stars")).toArray();
+    stars.reserve(starArray.size());
+
+    for (const QJsonValue &value : starArray) {
+        if (!value.isObject())
+            continue;
+
+        const QJsonObject object = value.toObject();
+        const QJsonObject position = object.value(QStringLiteral("position")).toObject();
+        const QJsonObject colors   = object.value(QStringLiteral("colors")).toObject();
+
+        StarDefinition star;
+        star.text = object.value(QStringLiteral("text")).toString();
+        star.position = QVector3D(
+            static_cast<float>(position.value(QStringLiteral("x")).toDouble()),
+            static_cast<float>(position.value(QStringLiteral("y")).toDouble()),
+            static_cast<float>(position.value(QStringLiteral("z")).toDouble()));
+        star.coreColor = QColor(colors.value(QStringLiteral("core")).toString(QStringLiteral("#ffffff")));
+        star.glowColor = QColor(colors.value(QStringLiteral("glow")).toString(QStringLiteral("#99ccff")));
+        star.radius = object.value(QStringLiteral("radius")).toDouble(7.0);
+
+        if (!star.coreColor.isValid())
+            star.coreColor = QColor(255, 255, 255);
+        if (!star.glowColor.isValid())
+            star.glowColor = QColor(153, 204, 255);
+
+        stars.push_back(star);
+    }
+
+    return stars;
 }

@@ -1,0 +1,28 @@
+{
+  "stars": [
+    {
+      "text": "Move fast. Don't run.",
+      "position": { "x": -540, "y": 260, "z": 520 },
+      "colors": { "core": "#e6f2ff", "glow": "#82beff" },
+      "radius": 6.5
+    },
+    {
+      "text": "Create more than before.",
+      "position": { "x": 620, "y": -320, "z": 1280 },
+      "colors": { "core": "#ffd678", "glow": "#ff9a46" },
+      "radius": 6.8
+    },
+    {
+      "text": "The purpose is people.",
+      "position": { "x": -620, "y": -420, "z": 2100 },
+      "colors": { "core": "#ffb86e", "glow": "#ff8444" },
+      "radius": 7.0
+    },
+    {
+      "text": "Stay curious. Keep building.",
+      "position": { "x": 560, "y": 360, "z": 2280 },
+      "colors": { "core": "#c4a0ff", "glow": "#8e60ff" },
+      "radius": 7.2
+    }
+  ]
+}

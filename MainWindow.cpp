@@ -13,6 +13,7 @@
 #include <QShortcut>
 #include <QSizePolicy>
 #include <QStackedWidget>
+#include <QTabWidget>
 #include <QTextDocument>
 #include <QToolBar>
 #include <QToolButton>
@@ -102,8 +103,12 @@ MainWindow::MainWindow() {
     buildEditorPage();
     ensureCrawlWindow();
 
-    connect(m_editor->document(), &QTextDocument::modificationChanged, this, [this](bool modified) {
-        m_hasUnsavedChanges = modified;
+    connect(m_editor->document(), &QTextDocument::modificationChanged, this, [this](bool) {
+        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->document()->isModified();
+        setStatusForCurrentPath(currentEditingStatus());
+    });
+    connect(m_starsEditor->document(), &QTextDocument::modificationChanged, this, [this](bool) {
+        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->document()->isModified();
         setStatusForCurrentPath(currentEditingStatus());
     });
 
@@ -181,8 +186,7 @@ void MainWindow::buildEditorPage() {
     toolbarLayout->addStretch(1);
     toolbarLayout->addWidget(m_statusLabel);
 
-    m_editor = new QPlainTextEdit(m_editorPage);
-    m_editor->setStyleSheet(
+    const QString editorStyle =
         "QPlainTextEdit {"
         "background: #161616;"
         "color: #f1f1f1;"
@@ -191,10 +195,25 @@ void MainWindow::buildEditorPage() {
         "padding: 12px;"
         "selection-background-color: #404040;"
         "}"
+    ;
+
+    m_editorTabs = new QTabWidget(m_editorPage);
+    m_editorTabs->setStyleSheet(
+        "QTabWidget::pane { border: 1px solid #2c3642; background: #10151b; }"
+        "QTabBar::tab { background: #16202b; color: #bfcbd7; padding: 10px 16px; margin-right: 4px; border-top-left-radius: 8px; border-top-right-radius: 8px; }"
+        "QTabBar::tab:selected { background: #24384d; color: #f4fbff; }"
     );
 
+    m_editor = new QPlainTextEdit(m_editorPage);
+    m_editor->setStyleSheet(editorStyle);
+    m_starsEditor = new QPlainTextEdit(m_editorPage);
+    m_starsEditor->setStyleSheet(editorStyle);
+
+    m_editorTabs->addTab(m_editor, QStringLiteral("text.txt"));
+    m_editorTabs->addTab(m_starsEditor, QStringLiteral("stars.json"));
+
     rootLayout->addLayout(toolbarLayout);
-    rootLayout->addWidget(m_editor, 1);
+    rootLayout->addWidget(m_editorTabs, 1);
 
     connect(launchButton, &QPushButton::clicked, this, [this]() { enterShowMode(); });
 
@@ -336,7 +355,9 @@ void MainWindow::configureAction(QAction *action, const QString &text, const QKe
 
 void MainWindow::loadIntoEditor() {
     m_editor->setPlainText(loadRawText());
+    m_starsEditor->setPlainText(loadRawStars());
     m_editor->document()->setModified(false);
+    m_starsEditor->document()->setModified(false);
     m_hasUnsavedChanges = false;
 }
 
@@ -368,17 +389,27 @@ void MainWindow::ensureCrawlWindow() {
 }
 
 bool MainWindow::saveEditorContents() {
-    QString savedPath;
-    if (!saveRawText(m_editor->toPlainText(), &savedPath)) {
+    QString textSavedPath;
+    if (!saveRawText(m_editor->toPlainText(), &textSavedPath)) {
         QMessageBox::warning(
             this,
             QStringLiteral("Save failed"),
-            QStringLiteral("The file could not be saved. The embedded Qt resource is read-only at runtime."));
+            QStringLiteral("The text file could not be saved. The embedded Qt resource is read-only at runtime."));
+        return false;
+    }
+
+    QString starsSavedPath;
+    if (!saveRawStars(m_starsEditor->toPlainText(), &starsSavedPath)) {
+        QMessageBox::warning(
+            this,
+            QStringLiteral("Save failed"),
+            QStringLiteral("The star configuration file could not be saved. The embedded Qt resource is read-only at runtime."));
         return false;
     }
     m_editor->document()->setModified(false);
+    m_starsEditor->document()->setModified(false);
     m_hasUnsavedChanges = false;
-    setStatusForCurrentPath(QStringLiteral("Saved"), savedPath);
+    setStatusForCurrentPath(QStringLiteral("Saved"), textSavedPath);
     return true;
 }
 
@@ -401,6 +432,7 @@ bool MainWindow::confirmDiscardOrSave() {
 void MainWindow::enterShowMode() {
     ensureCrawlWindow();
     m_crawlWindow->setContent(parseContent(m_editor->toPlainText()));
+    m_crawlWindow->setGoalStars(parseStars(m_starsEditor->toPlainText()));
     m_crawlWindow->setShowMode(
         m_startupMode == StartupMode::Live
             ? CrawlWindow::ShowMode::Live
