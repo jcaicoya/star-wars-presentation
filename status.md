@@ -2,145 +2,95 @@
 
 ## Current snapshot
 
-This project is no longer just a crawl prototype.
+The project is a fully functional Star Wars-inspired presentation tool with three modes, a launcher, an editor, and a complete cinematic pipeline from intro to finale.
 
-It now contains:
-
-- a launcher screen
-- an editor mode
-- a video-game-like 3D star-map mode
-- a live presentation mode that attempts to reuse the same 3D star-map
-
-The project is clearly moving toward a reusable "presentation world" rather than a one-off crawl animation.
+All previously identified blockers (automatic traveling, star visuals, final screen) are resolved.
 
 ## What is implemented
 
 ### 1. Launcher / mode selection
 
-The app starts on a launcher page instead of jumping directly into show mode.
-
-Available selectors:
-
-- `Live mode`
-- `Edit mode`
-- `Video game mode`
-- `Current size`
-- `Full screen`
-
-There is also a toolbar with mode/display shortcuts.
+The app starts on a launcher page with large card selectors for mode and display style, plus a toolbar with keyboard shortcuts.
 
 ### 2. Edit mode
 
-Edit mode can now edit both data sources used by the presentation:
+Edits both data sources used by the presentation:
 
-- [resources/text.txt](C:/Users/caico/Workspaces/C++/StarWarsText/resources/text.txt)
-- [resources/stars.json](C:/Users/caico/Workspaces/C++/StarWarsText/resources/stars.json)
+- `resources/text.txt` (section-based crawl content)
+- `resources/stars.json` (star map configuration)
 
-This means the star map is no longer hardcoded in C++.
+Both are presented as tabs and saved together with `Ctrl+S`.
 
 ### 3. Star-map data externalization
 
-The goal stars are now loaded from JSON.
+Goal stars loaded from JSON. Schema: `text`, `position` (x/y/z), `colors.core`, `colors.glow`, `radius`.
 
-This is the right direction because star configuration is structured data, not free text.
-
-The file currently supports:
-
-- `text`
-- `position`
-- `colors.core`
-- `colors.glow`
-- `radius`
+Currently 4 configured stars.
 
 ### 4. Video game mode
 
-This mode is the most coherent part of the project at the moment.
+Free-flight 3D-ish navigation with bounded movement, projected starfield, goal stars with labels, cube HUD with markers, and coordinate readout.
 
-It already has:
+### 5. Live mode — full cinematic pipeline
 
-- bounded 3D-ish movement
-- projected star field
-- goal stars
-- cube HUD
-- goal-star markers in the cube
-- coordinate readout
+Live mode runs a complete sequence of 6 phases:
 
-This mode proves that the current "star map + ship position" model is viable.
+1. **Intro** — italic blue text, fade in/hold/fade out (~4.8 s)
+2. **Logo** — large yellow text that shrinks exponentially and fades (~6.7 s)
+3. **Crawl** — perspective-projected scrolling text with 3D starfield background, auto-transitions after content scrolls past or after 45 s timeout
+4. **Spaceflight** — deterministic leg-based travel to each goal star using `easeInOutSine` interpolation; crawl overlay fades out during the first leg; Space advances to the next star after arrival
+5. **ThreeStars** — cinematic per-star sequence with 6 sub-stages (Entry → Acquire → Travel → Reveal → Hold → Transition); camera shifts, star halo grows, message text fades in; auto-advances in Live mode
+6. **Planet** — camera pans right, blue planet approaches with atmosphere glow, then reveals summary text ("Three guiding stars" + all star messages)
 
-### 5. Live mode reuse of the 3D engine
+### 6. Automatic traveling (resolved)
 
-Live mode now starts from the same star-map world instead of switching to a disconnected post-crawl effect.
+The live-mode pathing system uses:
 
-Current intent:
+- leg-based interpolation: each leg has an explicit start, end, tick counter, and duration
+- duration proportional to distance (`distance / 5.5f`, min 120 ticks)
+- `easeInOutSine` easing for smooth acceleration/deceleration
+- exact snap to target on arrival (`m_shipPosition = m_liveLegEnd`)
+- no accumulated drift — each new leg starts from current position
 
-- intro
-- logo
-- crawl
-- same mapped stars visible in the background
-- fade from crawl into travel toward the first configured star
+### 7. Star visuals (resolved)
 
-Conceptually, this is the correct direction.
+- goal stars rendered back-to-front (depth-sorted)
+- radial gradient glow with distance-based emphasis
+- projection-based scale
+- background space stars with twinkle animation and spatial recycling
+- ThreeStars phase adds cinematic halo growth, vignette, and neighbor satellites
+
+### 8. Final screen (resolved)
+
+Planet phase provides a clean ending:
+
+- three-stage animation: pan (150 ticks) → approach (130 ticks) → text reveal (50 ticks)
+- blue planet with layered ellipses and atmospheric glow
+- summary text fades in with all star messages
 
 ## What is working well
 
-- external star configuration through `stars.json`
+- complete end-to-end Live mode presentation
+- deterministic, drift-free automatic traveling
+- externalized star configuration consumed by all modes
 - launcher/editor structure
-- first leg of the live-mode travel is close to the intended feeling
-- video-game navigation demonstrates the right rendering model
-- initial deep-space look improved after increasing starfield density and shrinking stars
+- contextual HUD hints per phase and mode
+- video-game mode as a standalone exploration tool
 
-## What is not working yet
+## Remaining considerations
 
-### 1. Automatic traveling in live mode
+### 1. Technology risk
 
-This is the main blocker.
+The project pushes Qt Widgets + custom QPainter rendering far beyond typical usage. This works, but iteration speed on camera, 3D, and shader-like effects is limited compared to a real 3D engine or GPU-accelerated framework.
 
-Observed problem:
+### 2. Content polish
 
-- the first star approach feels acceptable
-- later approaches become incorrect
-- the system either overshoots, reaches the wrong framing, or accumulates route errors
+- star size/glow tuning is subjective and may need per-presentation adjustment
+- ThreeStars timing constants are hardcoded; may benefit from externalization
+- planet finale text is hardcoded; could be driven by `stars.json`
 
-Current conclusion:
+### 3. Minor issues
 
-- this is a pathing / sequencing problem, not simply a star-position problem
-
-### 2. Star look and feel
-
-The visuals are improved, but still not finished.
-
-Remaining issues:
-
-- important stars can still feel too large or too synthetic depending on context
-- star travel still needs more polish
-- the overall cinematic quality is not finished yet
-
-### 3. End state / final screen
-
-There is still no proper final screen after the last star.
-
-The old planet/final-state experiments are not the current answer.
-
-We need a clean final screen, currently described informally as the "game over one".
-
-### 4. Technology risk
-
-The project is pushing Qt Widgets + custom 2D rendering quite far.
-
-This does not mean the current approach is wrong, but it does mean we should explicitly evaluate whether another language or tool would accelerate iteration for:
-
-- camera movement
-- 3D feeling
-- cinematic sequencing
-- shader/effects work
-
-## Current recommendation
-
-Do not keep expanding features blindly until the live-mode automatic traveling is corrected.
-
-The next session should focus on:
-
-1. correct live-mode automatic travel
-2. polish star visuals
-3. design the final screen
-4. evaluate whether the current stack is still the best one
+- `m_starMessages` constructor still has 3 hardcoded fallback entries (overwritten by `setGoalStars` at runtime, but dead code)
+- duplicate `desired.normalize()` call in video-game tick (line 405)
+- Windows-style paths in some doc links
