@@ -4,6 +4,7 @@
 #include <QFontMetrics>
 #include <QKeyEvent>
 #include <QLinearGradient>
+#include <QRadialGradient>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPolygonF>
@@ -51,6 +52,7 @@ void CrawlWindow::openShowWindow() {
     showNormal();
     raise();
     activateWindow();
+    m_elapsedTimer.start();
     transitionTo(Phase::Intro);
     m_animationTimer.start();
     update();
@@ -92,6 +94,10 @@ void CrawlWindow::keyPressEvent(QKeyEvent *event) {
         setWindowState(windowState() ^ Qt::WindowFullScreen);
         return;
     }
+    if (event->key() == Qt::Key_Space) {
+        advanceToNextPhase();
+        return;
+    }
     QWidget::keyPressEvent(event);
 }
 
@@ -115,6 +121,7 @@ void CrawlWindow::transitionTo(Phase phase) {
         break;
     case Phase::Crawl:
         m_crawlOffset = 0.0;
+        m_cameraTilt  = 0.0;
         rebuildLines();
         break;
     case Phase::Outro:
@@ -124,6 +131,15 @@ void CrawlWindow::transitionTo(Phase phase) {
 }
 
 // ── Per-phase tick ────────────────────────────────────────────────────────────
+
+void CrawlWindow::advanceToNextPhase() {
+    switch (m_phase) {
+    case Phase::Intro:  transitionTo(Phase::Logo);  break;
+    case Phase::Logo:   transitionTo(Phase::Crawl); break;
+    case Phase::Crawl:  transitionTo(Phase::Outro); break;
+    case Phase::Outro:  break; // let it finish
+    }
+}
 
 static constexpr int kIntroFadeInTicks  = 75;   // ~1.2 s
 static constexpr int kIntroHoldTicks    = 150;  // ~2.4 s
@@ -144,13 +160,37 @@ void CrawlWindow::tickLogo() {
         transitionTo(Phase::Crawl);
 }
 
+static constexpr qint64 kCrawlOutroTriggerMs = 45'000; // 45 s from show start
+
 void CrawlWindow::tickCrawl() {
     m_crawlOffset += scrollStep();
+    if (m_elapsedTimer.elapsed() >= kCrawlOutroTriggerMs)
+        transitionTo(Phase::Outro);
 }
 
+static constexpr int kOutroCameraPanTicks = 80;   // ~1.3 s  horizon rises, scroll accelerates
+static constexpr int kOutroCrawlFadeTicks = 50;   // ~0.8 s  crawl fades out (camera fully tilted)
+static constexpr int kOutroGlowTicks      = 150;  // ~2.4 s  central point of light grows
+static constexpr int kOutroFlashTicks     = 60;   // ~1.0 s  white flash fills screen
+static constexpr int kOutroTotalTicks     =
+    kOutroCameraPanTicks + kOutroCrawlFadeTicks + kOutroGlowTicks + kOutroFlashTicks;
+
 void CrawlWindow::tickOutro() {
-    // TODO: camera pan / planet reveal
-    m_animationTimer.stop();
+    ++m_outroTick;
+
+    if (m_outroTick <= kOutroCameraPanTicks) {
+        // Camera tilts down: scroll accelerates as the horizon rises
+        m_cameraTilt   = static_cast<qreal>(m_outroTick) / kOutroCameraPanTicks;
+        m_crawlOffset += scrollStep() * (1.0 + m_cameraTilt * 4.0);
+    } else if (m_outroTick <= kOutroCameraPanTicks + kOutroCrawlFadeTicks) {
+        // Camera fully tilted, crawl still scrolling while fading
+        m_crawlOffset += scrollStep() * 5.0;
+    }
+
+    if (m_outroTick >= kOutroTotalTicks) {
+        m_animationTimer.stop();
+        close();
+    }
 }
 
 // ── Per-phase paint ───────────────────────────────────────────────────────────
@@ -225,8 +265,10 @@ void CrawlWindow::paintCrawl(QPainter &painter) {
         return;
 
     const QRectF viewport    = crawlViewport();
-    const qreal topScreenY   = viewport.top()    + viewport.height() * 0.14;
-    const qreal bottomScreenY= viewport.bottom() + viewport.height() * 0.02;
+    // m_cameraTilt (0→1) raises the horizon and pushes the bottom down,
+    // simulating the camera rotating downward to look at the floor of space.
+    const qreal topScreenY   = viewport.top()    + viewport.height() * (0.14 - m_cameraTilt * 0.24);
+    const qreal bottomScreenY= viewport.bottom() + viewport.height() * (0.02 + m_cameraTilt * 0.10);
     const qreal topWidth     = viewport.width()  * 0.08;
     const qreal bottomWidth  = viewport.width()  * 0.92;
     const qreal topShiftX    = viewport.width()  * 0.025;
@@ -263,16 +305,61 @@ void CrawlWindow::paintCrawl(QPainter &painter) {
 }
 
 void CrawlWindow::paintOutro(QPainter &painter) {
-    // TODO: render camera pan / planet
-    Q_UNUSED(painter);
+    const int fadeEnd = kOutroCameraPanTicks + kOutroCrawlFadeTicks;
+    const int glowEnd = fadeEnd + kOutroGlowTicks;
+
+    // Phase 1: camera tilts down — horizon rises, scroll accelerates (m_cameraTilt driven by tick)
+    if (m_outroTick <= kOutroCameraPanTicks) {
+        paintCrawl(painter);
+        return;
+    }
+
+    // Phase 2: camera fully tilted, crawl fades out
+    if (m_outroTick <= fadeEnd) {
+        const qreal alpha = 1.0 - static_cast<qreal>(m_outroTick - kOutroCameraPanTicks)
+                                  / kOutroCrawlFadeTicks;
+        painter.setOpacity(alpha);
+        paintCrawl(painter);
+        painter.setOpacity(1.0);
+        return;
+    }
+
+    // Phase 3: a central point of light grows outward through the darkness
+    if (m_outroTick <= glowEnd) {
+        const qreal t = static_cast<qreal>(m_outroTick - fadeEnd) / kOutroGlowTicks;
+        const QPointF center(width() * 0.5, height() * 0.5);
+        const qreal maxRadius = std::hypot(width() * 0.5, height() * 0.5) * 0.65;
+        const qreal radius    = 3.0 + maxRadius * t * t;
+        const int   alpha     = static_cast<int>(255 * std::min(t * 4.0, 1.0));
+
+        QRadialGradient glow(center, radius, center);
+        glow.setColorAt(0.00, QColor(255, 255, 255, alpha));
+        glow.setColorAt(0.25, QColor(180, 220, 255, static_cast<int>(alpha * 0.55)));
+        glow.setColorAt(1.00, QColor(  0,   0,   0, 0));
+        painter.fillRect(rect(), glow);
+        return;
+    }
+
+    // Phase 4: white flash fills the screen
+    const qreal t = static_cast<qreal>(m_outroTick - glowEnd) / kOutroFlashTicks;
+    painter.fillRect(rect(), QColor(255, 255, 255, static_cast<int>(255 * std::min(t * 1.5, 1.0))));
 }
 
 void CrawlWindow::paintHUD(QPainter &painter) {
+    const qint64 ms   = m_elapsedTimer.isValid() ? m_elapsedTimer.elapsed() : 0;
+    const int    secs = static_cast<int>(ms / 1000);
+    const QString timeStr = QStringLiteral("%1:%2")
+        .arg(secs / 60, 2, 10, QLatin1Char('0'))
+        .arg(secs % 60, 2, 10, QLatin1Char('0'));
+
+    const QFont  hudFont(QStringLiteral("Consolas"), 11);
+    const QRectF hudRect(20.0, height() - 36.0, width() - 40.0, 20.0);
+
+    painter.setFont(hudFont);
     painter.setPen(QColor(180, 180, 180));
-    painter.setFont(QFont(QStringLiteral("Consolas"), 11));
-    painter.drawText(QRectF(20.0, height() - 36.0, width() - 40.0, 20.0),
-                     Qt::AlignLeft | Qt::AlignVCenter,
-                     QStringLiteral("Esc to editor   F11 fullscreen"));
+    painter.drawText(hudRect, Qt::AlignLeft  | Qt::AlignVCenter,
+                     QStringLiteral("Esc to editor   F11 fullscreen   Space \u2192 next scene"));
+    painter.drawText(hudRect, Qt::AlignRight | Qt::AlignVCenter, timeStr);
 }
 
 // ── Viewport / scroll ─────────────────────────────────────────────────────────
@@ -379,6 +466,10 @@ void CrawlWindow::renderCrawlImage() {
     const qreal exitPadding  = m_sourceWindowHeight * 0.45;
     const int imageWidth  = std::max(320, static_cast<int>(std::ceil(bodyColumnWidth + 80.0)));
     const int imageHeight = std::max(240, static_cast<int>(std::ceil(entryPadding + totalContentHeight() + exitPadding)));
+
+    // Trigger outro when the last content line has moved into the upper ~35% of the
+    // source window — it looks tiny/illegible there, so it is the right moment to cut.
+    m_crawlTriggerOffset = entryPadding + totalContentHeight() - m_sourceWindowHeight * 0.35;
 
     m_crawlImage = QImage(imageWidth, imageHeight, QImage::Format_ARGB32_Premultiplied);
     m_crawlImage.fill(Qt::transparent);

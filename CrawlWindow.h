@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QFont>
 #include <QImage>
 #include <QTimer>
@@ -59,6 +60,7 @@ private:
 
     // ── Phase management ─────────────────────────────────────────────────────
     void transitionTo(Phase phase);
+    void advanceToNextPhase();
 
     // Per-phase tick (advances animation state; called every ~16 ms)
     void tickIntro();
@@ -85,6 +87,7 @@ private:
     CrawlContent      m_content;
     std::vector<Star> m_stars;
     QTimer            m_animationTimer;
+    QElapsedTimer     m_elapsedTimer;
     bool              m_hasInitializedWindowGeometry = false;
 
     // ── Phase state ──────────────────────────────────────────────────────────
@@ -99,8 +102,10 @@ private:
     // Crawl phase
     std::vector<RenderLine> m_renderLines;
     QImage                  m_crawlImage;
-    qreal                   m_sourceWindowHeight = 0.0;
-    qreal                   m_crawlOffset        = 0.0;
+    qreal                   m_sourceWindowHeight  = 0.0;
+    qreal                   m_crawlOffset         = 0.0;
+    qreal                   m_crawlTriggerOffset  = 0.0; // offset at which outro is triggered
+    qreal                   m_cameraTilt          = 0.0; // 0 = normal, 1 = fully tilted down
 
     // Outro phase  (reserved for implementation)
     int m_outroTick = 0;
