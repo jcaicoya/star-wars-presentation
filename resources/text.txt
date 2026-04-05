@@ -1,12 +1,25 @@
-TITLE
+Episode AI
 
-SUBTITLE
+A NEW PROMPT
 
-This is the first line of the
-first paragraph. We will have
-more lines than this, I think
-so...
+It is a period of rapid prototyping.
 
-And this is the first line of
-the second paragraph. We are
-going to have more lines too
+Rebel engineers, striking
+from hidden branches,
+have achieved their first victory
+against vague requirements
+and unstable demos.
+
+During the battle,
+the team managed to steal
+enough GPU time to prepare
+a presentation about models,
+agents, automation,
+and things that may or may not
+have worked five minutes ago.
+
+Pursued by deadlines,
+the speakers race toward launch,
+determined to deliver a talk
+capable of inspiring colleagues
+throughout the company...

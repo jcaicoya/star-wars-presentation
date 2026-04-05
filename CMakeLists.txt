@@ -16,6 +16,13 @@ find_package(Qt6 COMPONENTS
 
 add_executable(StarWarsText
         main.cpp
+        CrawlContent.h
+        TextIO.h
+        TextIO.cpp
+        CrawlWindow.h
+        CrawlWindow.cpp
+        MainWindow.h
+        MainWindow.cpp
         resources/resources.qrc
 )
 target_link_libraries(StarWarsText
