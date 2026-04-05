@@ -309,11 +309,13 @@ void CrawlWindow::advanceToNextPhase() {
                 ++m_liveAutoTargetIndex;
                 m_liveTargetReached = false;
                 m_liveLegStart = m_shipPosition;
-                m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position;
+                m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position + QVector3D(0.0f, 15.0f, -150.0f);
                 m_liveLegTick = 0;
                 const float distance = (m_liveLegEnd - m_liveLegStart).length();
                 m_liveLegDuration = std::max(120, static_cast<int>(distance / 5.5f));
                 m_liveLegActive = true;
+            } else {
+                transitionTo(Phase::Planet);
             }
         }
         break;
@@ -362,7 +364,7 @@ void CrawlWindow::tickSpaceflight() {
     if (m_showMode == ShowMode::Live) {
         if (!m_liveLegActive && !m_liveTargetReached && m_liveAutoTargetIndex < static_cast<int>(m_goalStars.size())) {
             m_liveLegStart = m_shipPosition;
-            m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position;
+            m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position + QVector3D(0.0f, 15.0f, -150.0f);
             m_liveLegTick = 0;
             const float distance = (m_liveLegEnd - m_liveLegStart).length();
             m_liveLegDuration = std::max(120, static_cast<int>(distance / 5.5f));
