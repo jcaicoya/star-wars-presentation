@@ -4,22 +4,19 @@ A NEW PROMPT
 
 It is a period of rapid prototyping.
 
-Rebel engineers, striking
-from hidden branches,
-have achieved their first victory
-against vague requirements
-and unstable demos.
+Rebel engineers, striking from
+hidden branches, have secured
+their first victory against vague
+requirements and unstable demos.
 
-During the battle,
-the team managed to steal
-enough GPU time to prepare
-a presentation about models,
-agents, automation,
-and things that may or may not
-have worked five minutes ago.
+During the battle, the team stole
+enough GPU time to prepare a talk
+on models, agents, automation,
+and systems that may or may not
+have worked five minutes before.
 
-Pursued by deadlines,
-the speakers race toward launch,
-determined to deliver a talk
-capable of inspiring colleagues
-throughout the company...
+Pursued by deadlines, the speakers
+race toward launch, determined
+to deliver a presentation worthy
+of inspiring colleagues across
+the entire company...

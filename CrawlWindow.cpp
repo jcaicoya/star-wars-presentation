@@ -318,7 +318,7 @@ void CrawlWindow::renderCrawlImage() {
     const QRectF viewport = crawlViewport();
     const QFont bodyFont(QStringLiteral("Consolas"), std::max(14, static_cast<int>(viewport.height() / 27.0)));
     const QFontMetricsF bodyMetrics(bodyFont);
-    const qreal bodyColumnWidth = bodyMetrics.horizontalAdvance(QStringLiteral("X")) * 30.0;
+    const qreal bodyColumnWidth = bodyMetrics.horizontalAdvance(QStringLiteral("X")) * 38.0;
     m_sourceWindowHeight = std::max(860.0, viewport.height() * 3.35);
     const qreal entryPadding = m_sourceWindowHeight * 1.0;
     const qreal exitPadding  = m_sourceWindowHeight * 0.45;
