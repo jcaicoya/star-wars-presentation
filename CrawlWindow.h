@@ -118,6 +118,7 @@ private:
     // ── Spaceflight helpers ──────────────────────────────────────────────────
     void    initializeSpaceflightScene();
     void    recycleSpaceStars();
+    void    paintSpaceScene(QPainter &painter, bool showGoalText, bool showHudCube, qreal crawlOverlayOpacity = 0.0);
     QPointF projectSpacePoint(const QVector3D &worldPoint, qreal *scale = nullptr) const;
     int     activeGoalStarIndex() const;
 
@@ -166,6 +167,9 @@ private:
     QVector3D m_shipVelocity;
     int       m_spaceflightTick = 0;
     qreal     m_spaceflightFade = 0.0;
+    qreal     m_liveCrawlOverlayOpacity = 0.0;
+    int       m_liveAutoTargetIndex = 0;
+    bool      m_liveTargetReached = false;
     bool      m_moveLeft        = false;
     bool      m_moveRight       = false;
     bool      m_moveUp          = false;
