@@ -16,14 +16,11 @@ class CrawlWindow final : public QWidget {
     Q_OBJECT
 
 public:
-    // Sequential animation phases.
-    // Each phase owns its own tick/paint methods and transitions to the next
-    // when complete. Unimplemented phases skip forward immediately.
     enum class Phase {
-        Intro,   // "A long time ago, in a galaxy far, far away..."
-        Logo,    // Star Wars logo zooms out from center
-        Crawl,   // Scrolling perspective text
-        Outro    // Camera pans down to reveal a planet
+        Intro,
+        Logo,
+        Crawl,
+        ThreeStars
     };
 
     explicit CrawlWindow(QWidget *parent = nullptr);
@@ -41,6 +38,14 @@ protected:
 
 private:
     enum class LineAlignment { Center, Left };
+    enum class ThreeStarsStage {
+        Entry,
+        Acquire,
+        Travel,
+        Reveal,
+        Hold,
+        Transition
+    };
 
     struct RenderLine {
         QString       text;
@@ -49,6 +54,13 @@ private:
         qreal         height       = 0.0;
         qreal         advance      = 0.0;
         qreal         spacingAfter = 0.0;
+    };
+
+    struct StarMessage {
+        QString text;
+        QPointF normalizedPosition;
+        QColor  coreColor;
+        QColor  glowColor;
     };
 
     // ── Viewport / scroll ────────────────────────────────────────────────────
@@ -66,14 +78,14 @@ private:
     void tickIntro();
     void tickLogo();
     void tickCrawl();
-    void tickOutro();
+    void tickThreeStars();
 
     // Per-phase paint (draws current phase on top of the starfield)
     void paintStarfield(QPainter &painter);
     void paintIntro(QPainter &painter);
     void paintLogo(QPainter &painter);
     void paintCrawl(QPainter &painter);
-    void paintOutro(QPainter &painter);
+    void paintThreeStars(QPainter &painter);
     void paintHUD(QPainter &painter);
 
     // ── Crawl-phase helpers ──────────────────────────────────────────────────
@@ -83,9 +95,14 @@ private:
     void  renderCrawlImage();
     qreal totalContentHeight() const;
 
+    // ── Three-stars helpers ──────────────────────────────────────────────────
+    QPointF targetPointForMessage(int index) const;
+    QRectF  messageRect() const;
+
     // ── Persistent data ──────────────────────────────────────────────────────
     CrawlContent      m_content;
     std::vector<Star> m_stars;
+    std::vector<StarMessage> m_starMessages;
     QTimer            m_animationTimer;
     QElapsedTimer     m_elapsedTimer;
     bool              m_hasInitializedWindowGeometry = false;
@@ -108,6 +125,12 @@ private:
     qreal                   m_cameraTilt          = 0.0; // 0 = normal, 1 = fully tilted down
     qreal                   m_starDriftY          = 0.0; // cumulative upward star drift (camera pan)
 
-    // Outro phase  (reserved for implementation)
-    int m_outroTick = 0;
+    // Three-stars phase
+    ThreeStarsStage m_threeStarsStage      = ThreeStarsStage::Entry;
+    int             m_threeStarsTick       = 0;
+    int             m_currentMessageIndex  = 0;
+    qreal           m_threeStarsEntryFade  = 0.0;
+    qreal           m_threeStarsTravel     = 0.0;
+    qreal           m_threeStarsMessageOpacity = 0.0;
+    qreal           m_threeStarsMessageScale   = 0.97;
 };
