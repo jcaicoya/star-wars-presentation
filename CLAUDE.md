@@ -29,11 +29,11 @@ On Windows: open in CLion with MSVC, no extra flags needed.
 
 ## Architecture
 
-- `main.cpp` — entry point
-- `MainWindow.cpp/.h` — launcher, editor, mode switching, save/load
-- `CrawlWindow.cpp/.h` — all rendering and animation (6 phases: Intro, Logo, Crawl, Spaceflight, ThreeStars, Planet)
-- `CrawlContent.h` — data structs (`CrawlContent`, `Star`, `StarDefinition`)
-- `TextIO.cpp/.h` — file I/O, section parser (`[intro]`, `[logo]`, `[title]`, `[subtitle]`, `[body]`), JSON star parser
+- `src/main.cpp` — entry point
+- `src/MainWindow.cpp/.h` — launcher, editor, mode switching, save/load
+- `src/CrawlWindow.cpp/.h` — all rendering and animation (6 phases: Intro, Logo, Crawl, Spaceflight, ThreeStars, Ending)
+- `src/CrawlContent.h` — data structs (`CrawlContent`, `Star`, `StarDefinition`, `InputState`, `LiveFlightState`)
+- `src/TextIO.cpp/.h` — file I/O, section parser (`[intro]`, `[logo]`, `[title]`, `[subtitle]`, `[body]`), JSON star parser
 - `resources/text.txt` — crawl content
 - `resources/stars.json` — star map (4 stars)
 
@@ -47,15 +47,13 @@ Both Live and Video game modes consume this file. Protect this schema:
 
 All core features work end-to-end:
 
-- Live mode: Intro, Logo, Crawl, Spaceflight (deterministic leg-based travel), ThreeStars (cinematic per-star showcase), Planet (finale with summary)
+- Live mode: Intro, Logo, Crawl, Spaceflight (deterministic leg-based travel), ThreeStars (cinematic per-star showcase), Ending (finale with summary)
 - Video game mode: free-flight with HUD
 - Launcher + tabbed editor for text.txt and stars.json
 
 ## Known code issues
 
-- Constructor (`CrawlWindow.cpp` ~L85-104): 3 hardcoded `m_starMessages` entries immediately overwritten by `setGoalStars` — dead code
-- `tickSpaceflight` (~L405): duplicate `desired.normalize()` call
-- ThreeStars timing constants and Planet finale text are hardcoded in C++
+- ThreeStars timing constants and Ending finale text are hardcoded in C++
 
 ## Pending decisions
 
