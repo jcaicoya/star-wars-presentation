@@ -17,24 +17,16 @@ QString resourceStarsPath() {
     return QStringLiteral(":/stars.json");
 }
 
-static QStringList candidateTextPaths() {
-    const QString currentPath  = QDir::cleanPath(QDir::current().filePath(QStringLiteral("resources/text.txt")));
-    const QString appDir       = QCoreApplication::applicationDirPath();
-    const QString nearBinary   = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../resources/text.txt")));
-    const QString aboveBinary  = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../../resources/text.txt")));
+static QStringList candidatePaths(const QString &relativePath) {
+    const QString currentPath = QDir::cleanPath(QDir::current().filePath(relativePath));
+    const QString appDir      = QCoreApplication::applicationDirPath();
+    const QString nearBinary  = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../") + relativePath));
+    const QString aboveBinary = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../../") + relativePath));
     return {currentPath, nearBinary, aboveBinary};
 }
 
-static QStringList candidateStarsPaths() {
-    const QString currentPath  = QDir::cleanPath(QDir::current().filePath(QStringLiteral("resources/stars.json")));
-    const QString appDir       = QCoreApplication::applicationDirPath();
-    const QString nearBinary   = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../resources/stars.json")));
-    const QString aboveBinary  = QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../../resources/stars.json")));
-    return {currentPath, nearBinary, aboveBinary};
-}
-
-QString editableTextPath() {
-    const QStringList candidates = candidateTextPaths();
+static QString editablePath(const QString &relativePath) {
+    const QStringList candidates = candidatePaths(relativePath);
     for (const QString &path : candidates) {
         if (QFileInfo::exists(path))
             return path;
@@ -42,70 +34,23 @@ QString editableTextPath() {
     return candidates.isEmpty() ? QString() : candidates.first();
 }
 
-QString editableStarsPath() {
-    const QStringList candidates = candidateStarsPaths();
-    for (const QString &path : candidates) {
-        if (QFileInfo::exists(path))
-            return path;
-    }
-    return candidates.isEmpty() ? QString() : candidates.first();
-}
-
-QString loadRawText() {
-    const QString diskPath = editableTextPath();
-    if (!diskPath.isEmpty()) {
-        QFile diskFile(diskPath);
-        if (diskFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QTextStream stream(&diskFile);
-            return stream.readAll();
-        }
-    }
-
-    QFile resourceFile(resourceTextPath());
-    if (resourceFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream stream(&resourceFile);
-        return stream.readAll();
-    }
-
-    return QString();
-}
-
-QString loadRawStars() {
-    const QString diskPath = editableStarsPath();
+static QString loadRaw(const QString &relativePath, const QString &resourcePath) {
+    const QString diskPath = editablePath(relativePath);
     if (!diskPath.isEmpty()) {
         QFile diskFile(diskPath);
         if (diskFile.open(QIODevice::ReadOnly | QIODevice::Text))
             return QString::fromUtf8(diskFile.readAll());
     }
 
-    QFile resourceFile(resourceStarsPath());
+    QFile resourceFile(resourcePath);
     if (resourceFile.open(QIODevice::ReadOnly | QIODevice::Text))
         return QString::fromUtf8(resourceFile.readAll());
 
     return QString();
 }
 
-bool saveRawText(const QString &text, QString *savedPath) {
-    const QString path = editableTextPath();
-    if (path.isEmpty())
-        return false;
-
-    QFileInfo info(path);
-    QDir().mkpath(info.absolutePath());
-
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
-        return false;
-
-    QTextStream stream(&file);
-    stream << text;
-    if (savedPath != nullptr)
-        *savedPath = path;
-    return true;
-}
-
-bool saveRawStars(const QString &text, QString *savedPath) {
-    const QString path = editableStarsPath();
+static bool saveRaw(const QString &relativePath, const QString &text, QString *savedPath) {
+    const QString path = editablePath(relativePath);
     if (path.isEmpty())
         return false;
 
@@ -120,6 +65,22 @@ bool saveRawStars(const QString &text, QString *savedPath) {
     if (savedPath != nullptr)
         *savedPath = path;
     return true;
+}
+
+static const QString kTextRelativePath  = QStringLiteral("resources/text.txt");
+static const QString kStarsRelativePath = QStringLiteral("resources/stars.json");
+
+QString editableTextPath()  { return editablePath(kTextRelativePath); }
+QString editableStarsPath() { return editablePath(kStarsRelativePath); }
+QString loadRawText()       { return loadRaw(kTextRelativePath, resourceTextPath()); }
+QString loadRawStars()      { return loadRaw(kStarsRelativePath, resourceStarsPath()); }
+
+bool saveRawText(const QString &text, QString *savedPath) {
+    return saveRaw(kTextRelativePath, text, savedPath);
+}
+
+bool saveRawStars(const QString &text, QString *savedPath) {
+    return saveRaw(kStarsRelativePath, text, savedPath);
 }
 
 // Parses a section-based text file.

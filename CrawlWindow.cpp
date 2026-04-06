@@ -27,6 +27,27 @@ constexpr float kSpaceMaxY =  440.0f;
 constexpr float kSpaceMinZ = -1000.0f;
 constexpr float kSpaceMaxZ = 2360.0f;
 
+// Spaceflight physics
+constexpr float kShipFriction     = 0.88f;
+constexpr float kAccelLateral     = 1.8f;
+constexpr float kAccelVertical    = 1.5f;
+constexpr float kAccelForward     = 2.8f;
+constexpr float kMaxLateralSpeed  = 7.5f;
+constexpr float kMaxForwardSpeed  = 11.0f;
+constexpr float kGoalStopOffsetY  = 15.0f;
+constexpr float kGoalApproachZ    = -150.0f;
+constexpr float kGoalSpeedDivisor = 5.5f;
+constexpr int   kMinLegDuration   = 120;
+constexpr qreal kGoalProximity    = 240.0;
+
+// Starfield
+constexpr int   kStarfieldCount   = 220;
+constexpr int   kSpaceStarCount   = 1200;
+
+// Spaceflight fade
+constexpr qreal kSpaceflightFadeFrames = 36.0;
+constexpr qreal kCrawlOverlayFadeRate  = 1.0 / 48.0;
+
 qreal clamp01(const qreal value) {
     return std::clamp(value, 0.0, 1.0);
 }
@@ -82,26 +103,13 @@ CrawlWindow::CrawlWindow(QWidget *parent)
         update();
     });
 
-    m_starMessages = {
-        {
-            QStringLiteral("Move fast. Don't run."),
-            QPointF(0.50, 0.50),
-            QColor(230, 242, 255),
-            QColor(130, 190, 255, 210)
-        },
-        {
-            QStringLiteral("Create more than before."),
-            QPointF(1.12, 0.50),
-            QColor(255, 246, 220),
-            QColor(255, 205, 120, 220)
-        },
-        {
-            QStringLiteral("The purpose is people."),
-            QPointF(0.50, -0.12),
-            QColor(255, 238, 215),
-            QColor(255, 176, 120, 215)
-        }
-    };
+    m_resizeDebounce.setSingleShot(true);
+    m_resizeDebounce.setInterval(100);
+    connect(&m_resizeDebounce, &QTimer::timeout, this, [this]() {
+        if (m_phase == Phase::Crawl || m_phase == Phase::ThreeStars)
+            rebuildLines();
+    });
+
 }
 
 // ── Public interface ──────────────────────────────────────────────────────────
@@ -180,9 +188,7 @@ void CrawlWindow::paintEvent(QPaintEvent *event) {
 
 void CrawlWindow::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
-    regenerateStars();
-    if (m_phase == Phase::Crawl || m_phase == Phase::ThreeStars)
-        rebuildLines();
+    m_resizeDebounce.start();
 }
 
 void CrawlWindow::keyPressEvent(QKeyEvent *event) {
@@ -200,12 +206,12 @@ void CrawlWindow::keyPressEvent(QKeyEvent *event) {
     }
     if (m_phase == Phase::Spaceflight) {
         switch (event->key()) {
-        case Qt::Key_Left:  m_moveLeft = true;     return;
-        case Qt::Key_Right: m_moveRight = true;    return;
-        case Qt::Key_Up:    m_moveUp = true;       return;
-        case Qt::Key_Down:  m_moveDown = true;     return;
-        case Qt::Key_W:     m_moveForward = true;  return;
-        case Qt::Key_S:     m_moveBackward = true; return;
+        case Qt::Key_Left:  m_input.left = true;     return;
+        case Qt::Key_Right: m_input.right = true;    return;
+        case Qt::Key_Up:    m_input.up = true;       return;
+        case Qt::Key_Down:  m_input.down = true;     return;
+        case Qt::Key_W:     m_input.forward = true;  return;
+        case Qt::Key_S:     m_input.backward = true; return;
         default: break;
         }
     }
@@ -215,12 +221,12 @@ void CrawlWindow::keyPressEvent(QKeyEvent *event) {
 void CrawlWindow::keyReleaseEvent(QKeyEvent *event) {
     if (m_phase == Phase::Spaceflight) {
         switch (event->key()) {
-        case Qt::Key_Left:  m_moveLeft = false;     return;
-        case Qt::Key_Right: m_moveRight = false;    return;
-        case Qt::Key_Up:    m_moveUp = false;       return;
-        case Qt::Key_Down:  m_moveDown = false;     return;
-        case Qt::Key_W:     m_moveForward = false;  return;
-        case Qt::Key_S:     m_moveBackward = false; return;
+        case Qt::Key_Left:  m_input.left = false;     return;
+        case Qt::Key_Right: m_input.right = false;    return;
+        case Qt::Key_Up:    m_input.up = false;       return;
+        case Qt::Key_Down:  m_input.down = false;     return;
+        case Qt::Key_W:     m_input.forward = false;  return;
+        case Qt::Key_S:     m_input.backward = false; return;
         default: break;
         }
     }
@@ -229,8 +235,7 @@ void CrawlWindow::keyReleaseEvent(QKeyEvent *event) {
 
 void CrawlWindow::closeEvent(QCloseEvent *event) {
     m_animationTimer.stop();
-    if (onClosed)
-        onClosed();
+    emit closed();
     QWidget::closeEvent(event);
 }
 
@@ -256,19 +261,10 @@ void CrawlWindow::transitionTo(Phase phase) {
         m_spaceflightTick = 0;
         m_spaceflightFade = 0.0;
         m_liveCrawlOverlayOpacity = (m_showMode == ShowMode::Live) ? 1.0 : 0.0;
-        m_liveAutoTargetIndex = 0;
-        m_liveTargetReached = false;
-        m_liveLegStart = m_shipPosition;
-        m_liveLegEnd = m_shipPosition;
-        m_liveLegTick = 0;
-        m_liveLegDuration = 0;
-        m_liveLegActive = false;
-        m_moveLeft = false;
-        m_moveRight = false;
-        m_moveUp = false;
-        m_moveDown = false;
-        m_moveForward = false;
-        m_moveBackward = false;
+        m_liveFlight = {};
+        m_liveFlight.legStart = m_shipPosition;
+        m_liveFlight.legEnd = m_shipPosition;
+        m_input = {};
         break;
     case Phase::ThreeStars:
         m_threeStarsStage          = ThreeStarsStage::Entry;
@@ -303,16 +299,16 @@ void CrawlWindow::advanceToNextPhase() {
         transitionTo(Phase::Spaceflight);
         break;
     case Phase::Spaceflight:
-        if (m_showMode == ShowMode::Live && m_liveTargetReached) {
-            if (m_liveAutoTargetIndex + 1 < static_cast<int>(m_goalStars.size())) {
-                ++m_liveAutoTargetIndex;
-                m_liveTargetReached = false;
-                m_liveLegStart = m_shipPosition;
-                m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position + QVector3D(0.0f, 15.0f, -150.0f);
-                m_liveLegTick = 0;
-                const float distance = (m_liveLegEnd - m_liveLegStart).length();
-                m_liveLegDuration = std::max(120, static_cast<int>(distance / 5.5f));
-                m_liveLegActive = true;
+        if (m_showMode == ShowMode::Live && m_liveFlight.targetReached) {
+            if (m_liveFlight.autoTargetIndex + 1 < static_cast<int>(m_goalStars.size())) {
+                ++m_liveFlight.autoTargetIndex;
+                m_liveFlight.targetReached = false;
+                m_liveFlight.legStart = m_shipPosition;
+                m_liveFlight.legEnd = m_goalStars[m_liveFlight.autoTargetIndex].position + QVector3D(0.0f, kGoalStopOffsetY, kGoalApproachZ);
+                m_liveFlight.legTick = 0;
+                const float distance = (m_liveFlight.legEnd - m_liveFlight.legStart).length();
+                m_liveFlight.legDuration = std::max(kMinLegDuration, static_cast<int>(distance / kGoalSpeedDivisor));
+                m_liveFlight.legActive = true;
             } else {
                 transitionTo(Phase::Ending);
             }
@@ -358,31 +354,31 @@ void CrawlWindow::tickCrawl() {
 
 void CrawlWindow::tickSpaceflight() {
     ++m_spaceflightTick;
-    m_spaceflightFade = std::min(1.0, static_cast<qreal>(m_spaceflightTick) / 36.0);
+    m_spaceflightFade = std::min(1.0, static_cast<qreal>(m_spaceflightTick) / kSpaceflightFadeFrames);
 
     if (m_showMode == ShowMode::Live) {
-        if (!m_liveLegActive && !m_liveTargetReached && m_liveAutoTargetIndex < static_cast<int>(m_goalStars.size())) {
-            m_liveLegStart = m_shipPosition;
-            m_liveLegEnd = m_goalStars[m_liveAutoTargetIndex].position + QVector3D(0.0f, 15.0f, -150.0f);
-            m_liveLegTick = 0;
-            const float distance = (m_liveLegEnd - m_liveLegStart).length();
-            m_liveLegDuration = std::max(120, static_cast<int>(distance / 5.5f));
-            m_liveLegActive = true;
+        if (!m_liveFlight.legActive && !m_liveFlight.targetReached && m_liveFlight.autoTargetIndex < static_cast<int>(m_goalStars.size())) {
+            m_liveFlight.legStart = m_shipPosition;
+            m_liveFlight.legEnd = m_goalStars[m_liveFlight.autoTargetIndex].position + QVector3D(0.0f, kGoalStopOffsetY, kGoalApproachZ);
+            m_liveFlight.legTick = 0;
+            const float distance = (m_liveFlight.legEnd - m_liveFlight.legStart).length();
+            m_liveFlight.legDuration = std::max(kMinLegDuration, static_cast<int>(distance / kGoalSpeedDivisor));
+            m_liveFlight.legActive = true;
         }
 
-        if (m_liveLegActive) {
-            ++m_liveLegTick;
-            const qreal t = clamp01(static_cast<qreal>(m_liveLegTick) / std::max(1, m_liveLegDuration));
+        if (m_liveFlight.legActive) {
+            ++m_liveFlight.legTick;
+            const qreal t = clamp01(static_cast<qreal>(m_liveFlight.legTick) / std::max(1, m_liveFlight.legDuration));
             const qreal eased = easeInOutSine(t);
-            m_shipPosition = m_liveLegStart + (m_liveLegEnd - m_liveLegStart) * eased;
-            m_shipVelocity = (m_liveLegEnd - m_liveLegStart) * static_cast<float>(1.0 / std::max(1, m_liveLegDuration));
-            m_liveCrawlOverlayOpacity = std::max(0.0, m_liveCrawlOverlayOpacity - (1.0 / 48.0));
+            m_shipPosition = m_liveFlight.legStart + (m_liveFlight.legEnd - m_liveFlight.legStart) * eased;
+            m_shipVelocity = (m_liveFlight.legEnd - m_liveFlight.legStart) * static_cast<float>(1.0 / std::max(1, m_liveFlight.legDuration));
+            m_liveCrawlOverlayOpacity = std::max(0.0, m_liveCrawlOverlayOpacity - kCrawlOverlayFadeRate);
 
-            if (m_liveLegTick >= m_liveLegDuration) {
-                m_shipPosition = m_liveLegEnd;
+            if (m_liveFlight.legTick >= m_liveFlight.legDuration) {
+                m_shipPosition = m_liveFlight.legEnd;
                 m_shipVelocity = QVector3D();
-                m_liveLegActive = false;
-                m_liveTargetReached = true;
+                m_liveFlight.legActive = false;
+                m_liveFlight.targetReached = true;
             }
         }
 
@@ -391,27 +387,23 @@ void CrawlWindow::tickSpaceflight() {
     }
 
     QVector3D desired;
-    if (m_moveLeft)     desired.setX(desired.x() - 1.0f);
-    if (m_moveRight)    desired.setX(desired.x() + 1.0f);
-    if (m_moveUp)       desired.setY(desired.y() - 1.0f);
-    if (m_moveDown)     desired.setY(desired.y() + 1.0f);
-    if (m_moveForward)  desired.setZ(desired.z() + 1.0f);
-    if (m_moveBackward) desired.setZ(desired.z() - 1.0f);
+    if (m_input.left)     desired.setX(desired.x() - 1.0f);
+    if (m_input.right)    desired.setX(desired.x() + 1.0f);
+    if (m_input.up)       desired.setY(desired.y() - 1.0f);
+    if (m_input.down)     desired.setY(desired.y() + 1.0f);
+    if (m_input.forward)  desired.setZ(desired.z() + 1.0f);
+    if (m_input.backward) desired.setZ(desired.z() - 1.0f);
 
     if (!desired.isNull())
         desired.normalize();
 
-    if (!desired.isNull())
-        desired.normalize();
-    QVector3D acceleration(desired.x() * 1.8f, desired.y() * 1.5f, desired.z() * 2.8f);
-    m_shipVelocity *= 0.88f;
+    QVector3D acceleration(desired.x() * kAccelLateral, desired.y() * kAccelVertical, desired.z() * kAccelForward);
+    m_shipVelocity *= kShipFriction;
     m_shipVelocity += acceleration;
 
-    const float maxLateral = 7.5f;
-    const float maxForward = 11.0f;
-    m_shipVelocity.setX(std::clamp(m_shipVelocity.x(), -maxLateral, maxLateral));
-    m_shipVelocity.setY(std::clamp(m_shipVelocity.y(), -maxLateral, maxLateral));
-    m_shipVelocity.setZ(std::clamp(m_shipVelocity.z(), -maxForward, maxForward));
+    m_shipVelocity.setX(std::clamp(m_shipVelocity.x(), -kMaxLateralSpeed, kMaxLateralSpeed));
+    m_shipVelocity.setY(std::clamp(m_shipVelocity.y(), -kMaxLateralSpeed, kMaxLateralSpeed));
+    m_shipVelocity.setZ(std::clamp(m_shipVelocity.z(), -kMaxForwardSpeed, kMaxForwardSpeed));
     m_shipPosition += m_shipVelocity;
 
     if (m_shipPosition.x() <= kSpaceMinX || m_shipPosition.x() >= kSpaceMaxX)
@@ -535,8 +527,8 @@ void CrawlWindow::paintStarfield(QPainter &painter) {
     }
 
     for (const Star &star : m_stars) {
-        qreal x = star.position.x() + cameraOffset.x();
-        qreal y = star.position.y() - m_starDriftY + cameraOffset.y();
+        qreal x = star.position.x() * w + cameraOffset.x();
+        qreal y = star.position.y() * h - m_starDriftY + cameraOffset.y();
         x -= std::floor(x / w) * w;
         y -= std::floor(y / h) * h;
         QPointF point(x, y);
@@ -868,12 +860,14 @@ void CrawlWindow::paintThreeStars(QPainter &painter) {
         halo.setColorAt(0.18, QColor(starMessage.glowColor.red(), starMessage.glowColor.green(),
                                      starMessage.glowColor.blue(), glowAlpha / 2));
         halo.setColorAt(1.00, QColor(0, 0, 0, 0));
-        painter.fillRect(rect(), halo);
+        const QRectF haloBounds(point.x() - haloRadius, point.y() - haloRadius,
+                                haloRadius * 2.0, haloRadius * 2.0);
+        painter.fillRect(haloBounds, halo);
 
         if (starTravel > 0.05) {
             const qreal vignetteAlpha = std::min(0.55, starTravel * 0.45) * alphaScale;
             painter.fillRect(rect(), QColor(0, 0, 0, static_cast<int>(255 * vignetteAlpha)));
-            painter.fillRect(rect(), halo);
+            painter.fillRect(haloBounds, halo);
         }
 
         painter.setPen(Qt::NoPen);
@@ -951,8 +945,8 @@ void CrawlWindow::paintEnding(QPainter &painter) {
         }
         
         for (const Star &star : m_stars) {
-            qreal dx = star.position.x() - center.x();
-            qreal dy = star.position.y() - center.y();
+            qreal dx = star.position.x() * w - center.x();
+            qreal dy = star.position.y() * h - center.y();
             const qreal dist = std::hypot(dx, dy);
             if (dist < 1.0) continue;
             
@@ -1091,7 +1085,7 @@ void CrawlWindow::paintHUD(QPainter &painter) {
     painter.setFont(hudFont);
     painter.setPen(QColor(180, 180, 180));
     QString hint = QStringLiteral("Esc to editor   F11 fullscreen   Space \u2192 next scene");
-    if (m_phase == Phase::Spaceflight && m_showMode == ShowMode::Live && m_liveTargetReached) {
+    if (m_phase == Phase::Spaceflight && m_showMode == ShowMode::Live && m_liveFlight.targetReached) {
         hint = QStringLiteral("Esc to editor   F11 fullscreen   Space \u2192 next star");
     } else if (m_phase == Phase::Spaceflight) {
         hint = QStringLiteral("Arrows move   W forward   S backward   Esc editor   F11 fullscreen");
@@ -1137,14 +1131,13 @@ qreal CrawlWindow::scrollStep() const {
 
 void CrawlWindow::regenerateStars() {
     m_stars.clear();
-    const int safeWidth  = std::max(1, width());
-    const int safeHeight = std::max(1, height());
-    const int starCount  = std::max(120, (safeWidth * safeHeight) / 9000);
+    constexpr int kStarCount = kStarfieldCount;
     auto *random = QRandomGenerator::global();
 
-    for (int i = 0; i < starCount; ++i) {
+    for (int i = 0; i < kStarCount; ++i) {
         Star star;
-        star.position = QPointF(random->bounded(safeWidth), random->bounded(safeHeight));
+        star.position = QPointF(random->bounded(10000) / 10000.0,
+                                random->bounded(10000) / 10000.0);
         star.depth    = 0.08 + random->bounded(920) / 1000.0;
         star.radius   = 0.45 + (1.0 - star.depth) * 2.2 + random->bounded(35) / 100.0;
         star.twinklePhase = random->bounded(628) / 100.0;
@@ -1256,7 +1249,6 @@ void CrawlWindow::initializeSpaceflightScene() {
 
     m_spaceStars.clear();
     auto *random = QRandomGenerator::global();
-    constexpr int kSpaceStarCount = 1200;
 
     for (int i = 0; i < kSpaceStarCount; ++i) {
         SpaceStar star;
@@ -1336,7 +1328,7 @@ int CrawlWindow::activeGoalStarIndex() const {
         return -1;
 
     const QVector3D relative = m_goalStars[bestIndex].position - m_shipPosition;
-    return (relative.length() < 240.0f) ? bestIndex : -1;
+    return (relative.length() < kGoalProximity) ? bestIndex : -1;
 }
 
 QPointF CrawlWindow::targetPointForMessage(const int index) const {

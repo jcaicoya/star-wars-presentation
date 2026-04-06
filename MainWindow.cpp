@@ -371,14 +371,14 @@ void MainWindow::configureCrawlWindow(CrawlWindow *window) {
     connect(window, &CrawlWindow::destroyed, this, [this]() {
         m_crawlWindow = nullptr;
     });
-    window->onClosed = [this]() {
+    connect(window, &CrawlWindow::closed, this, [this]() {
         showNormal();
         raise();
         activateWindow();
         m_pages->setCurrentWidget(m_launcherPage);
         refreshModeUi();
         setStatusForCurrentPath(currentEditingStatus());
-    };
+    });
 }
 
 void MainWindow::ensureCrawlWindow() {

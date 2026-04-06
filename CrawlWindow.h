@@ -6,7 +6,6 @@
 #include <QTimer>
 #include <QVector3D>
 #include <QWidget>
-#include <functional>
 #include <vector>
 
 #include "CrawlContent.h"
@@ -20,11 +19,6 @@ public:
     enum class ShowMode {
         Live,
         VideoGame
-    };
-
-    enum class EndingStyle {
-        Hyperspace,
-        Hologram
     };
 
     enum class Phase {
@@ -41,10 +35,10 @@ public:
     void setContent(const CrawlContent &content);
     void setGoalStars(const std::vector<StarDefinition> &stars);
     void setShowMode(ShowMode mode);
-    void setEndingStyle(EndingStyle style);
     void openShowWindow(bool fullscreen = false);
 
-    std::function<void()> onClosed;
+signals:
+    void closed();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -85,6 +79,25 @@ private:
         qreal     radius = 1.0;
         qreal     twinklePhase = 0.0;
         QColor    color;
+    };
+
+    struct InputState {
+        bool left     = false;
+        bool right    = false;
+        bool up       = false;
+        bool down     = false;
+        bool forward  = false;
+        bool backward = false;
+    };
+
+    struct LiveFlightState {
+        int       autoTargetIndex = 0;
+        bool      targetReached   = false;
+        QVector3D legStart;
+        QVector3D legEnd;
+        int       legTick     = 0;
+        int       legDuration = 0;
+        bool      legActive   = false;
     };
 
     // ── Viewport / scroll ────────────────────────────────────────────────────
@@ -146,6 +159,7 @@ private:
     std::vector<SpaceStar>   m_spaceStars;
     std::vector<StarDefinition> m_goalStars;
     QTimer            m_animationTimer;
+    QTimer            m_resizeDebounce;
     QElapsedTimer     m_elapsedTimer;
     bool              m_hasInitializedWindowGeometry = false;
     ShowMode          m_showMode = ShowMode::VideoGame;
@@ -169,24 +183,13 @@ private:
     qreal                   m_starDriftY          = 0.0; // cumulative upward star drift (camera pan)
 
     // Spaceflight phase
-    QVector3D m_shipPosition;
-    QVector3D m_shipVelocity;
-    int       m_spaceflightTick = 0;
-    qreal     m_spaceflightFade = 0.0;
-    qreal     m_liveCrawlOverlayOpacity = 0.0;
-    int       m_liveAutoTargetIndex = 0;
-    bool      m_liveTargetReached = false;
-    QVector3D m_liveLegStart;
-    QVector3D m_liveLegEnd;
-    int       m_liveLegTick = 0;
-    int       m_liveLegDuration = 0;
-    bool      m_liveLegActive = false;
-    bool      m_moveLeft        = false;
-    bool      m_moveRight       = false;
-    bool      m_moveUp          = false;
-    bool      m_moveDown        = false;
-    bool      m_moveForward     = false;
-    bool      m_moveBackward    = false;
+    QVector3D       m_shipPosition;
+    QVector3D       m_shipVelocity;
+    int             m_spaceflightTick = 0;
+    qreal           m_spaceflightFade = 0.0;
+    qreal           m_liveCrawlOverlayOpacity = 0.0;
+    InputState      m_input;
+    LiveFlightState m_liveFlight;
 
     // Three-stars phase
     ThreeStarsStage m_threeStarsStage      = ThreeStarsStage::Entry;
