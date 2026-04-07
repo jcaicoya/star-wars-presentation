@@ -1,28 +1,56 @@
 {
-  "stars": [
-    {
-      "text": "Move fast. Don't run.",
-      "position": { "x": -180, "y": 90, "z": 520 },
-      "colors": { "core": "#ff9a46", "glow": "#e77a23" },
-      "radius": 5.0
-    },
-    {
-      "text": "Create more than before.",
-      "position": { "x": 260, "y": -120, "z": 1320 },
-      "colors": { "core": "#ffffff", "glow": "#cccccc" },
-      "radius": 5.2
-    },
-    {
-      "text": "The purpose is people.",
-      "position": { "x": -320, "y": -220, "z": 2040 },
-      "colors": { "core": "#ffffff", "glow": "#cccccc" },
-      "radius": 5.4
-    },
-    {
-      "text": "",
-      "position": { "x": 220, "y": 180, "z": 2320 },
-      "colors": { "core": "#42c8ec", "glow": "#10a3ca" },
-      "radius": 5.6
-    }
-  ]
+    "stars": [
+        {
+            "colors": {
+                "core": "#ff9a46",
+                "glow": "#e77a23"
+            },
+            "position": {
+                "x": -472,
+                "y": -286,
+                "z": 700
+            },
+            "radius": 5,
+            "text": "Move fast; don't run"
+        },
+        {
+            "colors": {
+                "core": "#ffffff",
+                "glow": "#cccccc"
+            },
+            "position": {
+                "x": 200,
+                "y": -322,
+                "z": 1100
+            },
+            "radius": 5.2,
+            "text": "Create more than before"
+        },
+        {
+            "colors": {
+                "core": "#ffffff",
+                "glow": "#cccccc"
+            },
+            "position": {
+                "x": -199,
+                "y": -3,
+                "z": 1000
+            },
+            "radius": 5.4,
+            "text": "The purpose is people"
+        },
+        {
+            "colors": {
+                "core": "#42c8ec",
+                "glow": "#10a3ca"
+            },
+            "position": {
+                "x": 446.8699645996094,
+                "y": -79.00982666015625,
+                "z": 1980
+            },
+            "radius": 5.6,
+            "text": ""
+        }
+    ]
 }

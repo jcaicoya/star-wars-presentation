@@ -175,3 +175,31 @@ std::vector<StarDefinition> parseStars(const QString &rawText) {
 
     return stars;
 }
+
+QString serializeStars(const std::vector<StarDefinition> &stars) {
+    QJsonArray starArray;
+    for (const StarDefinition &star : stars) {
+        QJsonObject position;
+        position[QStringLiteral("x")] = static_cast<double>(star.position.x());
+        position[QStringLiteral("y")] = static_cast<double>(star.position.y());
+        position[QStringLiteral("z")] = static_cast<double>(star.position.z());
+
+        QJsonObject colors;
+        colors[QStringLiteral("core")] = star.coreColor.name();
+        colors[QStringLiteral("glow")] = star.glowColor.name();
+
+        QJsonObject object;
+        object[QStringLiteral("text")]     = star.text;
+        object[QStringLiteral("position")] = position;
+        object[QStringLiteral("colors")]   = colors;
+        object[QStringLiteral("radius")]   = star.radius;
+
+        starArray.append(object);
+    }
+
+    QJsonObject root;
+    root[QStringLiteral("stars")] = starArray;
+
+    QJsonDocument document(root);
+    return QString::fromUtf8(document.toJson(QJsonDocument::Indented));
+}

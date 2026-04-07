@@ -206,4 +206,5 @@ private:
     qreal m_endingPanProgress    = 0.0;
     qreal m_endingApproach       = 0.0;
     qreal m_endingTextOpacity    = 0.0;
+    QPointF m_endingShakeOffset;
 };

@@ -930,53 +930,151 @@ void CrawlWindow::paintEnding(QPainter &painter) {
     const int w = std::max<int>(1, width());
     const int h = std::max<int>(1, height());
     const QPointF center(static_cast<qreal>(w) * 0.5, static_cast<qreal>(h) * 0.5);
+    const qreal maxDim = std::max<qreal>(w, h);
 
     painter.fillRect(rect(), QColor(0, 0, 0));
 
-    // Hyperspace logic (0 to 300 ticks = 5 seconds)
-    qreal speed = 0.0;
-    if (m_endingTick <= 300) {
-        if (m_endingTick < 60) {
-            speed = easeInQuad(static_cast<qreal>(m_endingTick) / 60.0);
-        } else if (m_endingTick < 240) {
-            speed = 1.0;
+    // ── Hyperspace (0–420 ticks ≈ 7 s) ──────────────────────────────────────
+    //   Phase 1 — Charge-up   :   0–120  (2 s)
+    //   Phase 2 — Jump        : 120–300  (3 s)
+    //   Phase 3 — Deceleration: 300–420  (2 s)
+
+    constexpr int kChargeEnd =  60;
+    constexpr int kJumpEnd   = 150;
+    constexpr int kHyperEnd  = 210;
+
+    if (m_endingTick <= kHyperEnd) {
+        // Compute normalised intensity per sub-phase
+        qreal intensity = 0.0;   // 0 = still, 1 = full lightspeed
+        qreal streakMul = 1.0;   // extra streak-length multiplier at peak
+        qreal tunnelAlpha = 0.0; // radial tunnel overlay strength
+        qreal flashAlpha  = 0.0; // white flash overlay
+
+        if (m_endingTick < kChargeEnd) {
+            // Charge-up: slow exponential spool
+            const qreal t = static_cast<qreal>(m_endingTick) / kChargeEnd;
+            intensity  = t * t * t;           // cubic ease-in — slow start
+            streakMul  = 1.0 + 2.0 * t;      // streaks grow gently
+            tunnelAlpha = 0.0;
+        } else if (m_endingTick < kJumpEnd) {
+            // Jump: full speed with escalating visuals
+            const qreal t = static_cast<qreal>(m_endingTick - kChargeEnd) / (kJumpEnd - kChargeEnd);
+            intensity   = 1.0;
+            streakMul   = 3.0 + 12.0 * t;    // streaks reach ×15 at peak
+            tunnelAlpha = 0.3 + 0.5 * t;     // tunnel builds to 0.8
+
+            // White flash: ramps up during last 30 ticks of jump
+            if (m_endingTick > kJumpEnd - 30) {
+                const qreal ft = static_cast<qreal>(m_endingTick - (kJumpEnd - 30)) / 30.0;
+                flashAlpha = ft * ft;         // quadratic ramp into flash
+            }
         } else {
-            speed = 1.0 - easeOutQuad(static_cast<qreal>(m_endingTick - 240) / 60.0);
+            // Deceleration: rapid drop-off
+            const qreal t = static_cast<qreal>(m_endingTick - kJumpEnd) / (kHyperEnd - kJumpEnd);
+            const qreal inv = 1.0 - t;
+
+            // Flash peaks at decel start then fades quickly (first 40 ticks)
+            if (m_endingTick < kJumpEnd + 40) {
+                flashAlpha = 1.0 - easeOutCubic(static_cast<qreal>(m_endingTick - kJumpEnd) / 40.0);
+            }
+
+            intensity   = inv * inv;          // quadratic ease-out
+            streakMul   = 1.0 + 14.0 * inv * inv;
+            tunnelAlpha = 0.8 * inv * inv;
         }
-        
+
+        // Screen shake (active during charge-up ramp and jump, dies in decel)
+        qreal shakeAmount = 0.0;
+        if (m_endingTick < kChargeEnd) {
+            shakeAmount = 1.5 * intensity;
+        } else if (m_endingTick < kJumpEnd) {
+            shakeAmount = 2.5;
+        } else {
+            const qreal t = static_cast<qreal>(m_endingTick - kJumpEnd) / (kHyperEnd - kJumpEnd);
+            shakeAmount = 2.5 * (1.0 - t) * (1.0 - t);
+        }
+
+        if (shakeAmount > 0.01) {
+            auto *rng = QRandomGenerator::global();
+            m_endingShakeOffset = QPointF(
+                (rng->generateDouble() - 0.5) * 2.0 * shakeAmount,
+                (rng->generateDouble() - 0.5) * 2.0 * shakeAmount);
+        } else {
+            m_endingShakeOffset = QPointF(0, 0);
+        }
+
+        painter.save();
+        painter.translate(m_endingShakeOffset);
+
+        // Star streaks
         for (const Star &star : m_stars) {
-            qreal dx = star.position.x() * w - center.x();
-            qreal dy = star.position.y() * h - center.y();
+            const qreal dx = star.position.x() * w - center.x();
+            const qreal dy = star.position.y() * h - center.y();
             const qreal dist = std::hypot(dx, dy);
             if (dist < 1.0) continue;
-            
-            qreal move = dist * speed * 4.0;
-            QPointF currentPos = center + QPointF(dx, dy) * (1.0 + move);
-            QPointF startPos = currentPos - QPointF(dx, dy) * (speed * 1.5);
-            
+
+            const qreal normDx = dx / dist;
+            const qreal normDy = dy / dist;
+
+            // Streak length scales with distance from center and intensity
+            const qreal streakLen = dist * intensity * streakMul * 0.3;
+            const QPointF tip  = center + QPointF(dx, dy) + QPointF(normDx, normDy) * streakLen;
+            const QPointF tail = center + QPointF(dx, dy);
+
+            // Blue-white shift at high speed
             QColor c = star.color;
-            qreal starAlpha = 1.0;
-            if (m_endingTick > 240) {
-                starAlpha = 1.0 - static_cast<qreal>(m_endingTick - 240) / 60.0;
+            if (intensity > 0.5) {
+                const qreal blend = (intensity - 0.5) * 2.0;
+                const int r = static_cast<int>(c.red()   + (200 - c.red())   * blend);
+                const int g = static_cast<int>(c.green() + (220 - c.green()) * blend);
+                const int b = static_cast<int>(c.blue()  + (255 - c.blue())  * blend);
+                c = QColor(std::min(r, 255), std::min(g, 255), std::min(b, 255), c.alpha());
             }
-            c.setAlpha(std::clamp(static_cast<int>(star.color.alpha() * starAlpha), 0, 255));
-            
-            painter.setPen(QPen(c, std::max<qreal>(1.0, star.radius), Qt::SolidLine, Qt::RoundCap));
-            painter.drawLine(startPos, currentPos);
+
+            // Fade out during deceleration tail
+            if (m_endingTick > kJumpEnd + 60) {
+                const qreal fade = clamp01(static_cast<qreal>(m_endingTick - kJumpEnd - 60) / (kHyperEnd - kJumpEnd - 60));
+                c.setAlpha(static_cast<int>(c.alpha() * (1.0 - fade)));
+            }
+
+            const qreal penWidth = std::max<qreal>(1.0, star.radius * (1.0 + intensity * 1.5));
+            painter.setPen(QPen(c, penWidth, Qt::SolidLine, Qt::RoundCap));
+            painter.drawLine(tail, tip);
+        }
+
+        // Radial tunnel overlay — concentric blue-white gradient from center
+        if (tunnelAlpha > 0.01) {
+            const qreal tunnelRadius = maxDim * 0.8;
+            QRadialGradient tunnel(center, tunnelRadius, center);
+            tunnel.setColorAt(0.00, QColor(180, 210, 255, static_cast<int>(80 * tunnelAlpha)));
+            tunnel.setColorAt(0.15, QColor(120, 160, 255, static_cast<int>(50 * tunnelAlpha)));
+            tunnel.setColorAt(0.40, QColor( 60,  90, 200, static_cast<int>(25 * tunnelAlpha)));
+            tunnel.setColorAt(0.70, QColor( 20,  30, 100, static_cast<int>(10 * tunnelAlpha)));
+            tunnel.setColorAt(1.00, QColor(  0,   0,   0,  0));
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(tunnel);
+            painter.drawRect(rect());
+        }
+
+        painter.restore();
+
+        // White flash overlay (drawn without shake)
+        if (flashAlpha > 0.01) {
+            painter.fillRect(rect(), QColor(255, 255, 255, static_cast<int>(255 * flashAlpha)));
         }
     }
 
-    // Logo + Summary Reveal (m_endingTick > 300)
-    if (m_endingTick > 300) {
-        const qreal reveal = clamp01(static_cast<qreal>(m_endingTick - 300) / 90.0);
+    // ── Logo + Summary Reveal (after hyperspace) ─────────────────────────────
+    if (m_endingTick > kHyperEnd) {
+        const qreal reveal = clamp01(static_cast<qreal>(m_endingTick - kHyperEnd) / 90.0);
         const qreal logoAlpha = easeOutCubic(reveal);
 
         QColor orangeCore(255, 255, 255, static_cast<int>(255 * logoAlpha));
         QColor orangeGlow(231, 122, 35, static_cast<int>(255 * logoAlpha));
-        
+
         QColor whiteCore(255, 255, 255, static_cast<int>(255 * logoAlpha));
         QColor whiteGlow(200, 200, 200, static_cast<int>(200 * logoAlpha));
-        
+
         QColor cyanCore(255, 255, 255, static_cast<int>(255 * logoAlpha));
         QColor cyanGlow(16, 163, 202, static_cast<int>(255 * logoAlpha));
 
@@ -1039,18 +1137,19 @@ void CrawlWindow::paintEnding(QPainter &painter) {
             drawStar(node4, cyanCore, cyanGlow, true);
         }
 
-        // Text Reveal (m_endingTick > 390)
-        if (m_endingTick > 390) {
-            const qreal textOpacity = easeOutCubic(clamp01(static_cast<qreal>(m_endingTick - 390) / 60.0));
+        // Text Reveal
+        const int kTextRevealTick = kHyperEnd + 90;
+        if (m_endingTick > kTextRevealTick) {
+            const qreal textOpacity = easeOutCubic(clamp01(static_cast<qreal>(m_endingTick - kTextRevealTick) / 60.0));
             painter.setOpacity(textOpacity);
-            
+
             QFont bodyFont(QStringLiteral("Segoe UI"), std::max<int>(16, static_cast<int>(h * 0.025)), QFont::DemiBold);
             painter.setFont(bodyFont);
             painter.setPen(QColor(220, 230, 240));
-            
+
             auto drawLabel = [&](int index, const QPointF &nodePos, bool below) {
                 if (index >= static_cast<int>(m_starMessages.size())) return;
-                
+
                 const qreal offset = nodeRadius * 2.0;
                 QRectF textRect;
                 if (below) {
@@ -1066,7 +1165,7 @@ void CrawlWindow::paintEnding(QPainter &painter) {
             drawLabel(1, node2, false); // Above Node 2
             drawLabel(2, node3, true);  // Below Node 3
             drawLabel(3, node4, false); // Above Node 4
-            
+
             painter.setOpacity(1.0);
         }
     }

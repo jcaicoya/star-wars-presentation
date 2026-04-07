@@ -27,6 +27,10 @@ add_executable(StarWarsText
         src/CrawlWindow.cpp
         src/MainWindow.h
         src/MainWindow.cpp
+        src/StarMapWidget.h
+        src/StarMapWidget.cpp
+        src/StarsEditorWidget.h
+        src/StarsEditorWidget.cpp
         resources/resources.qrc
 )
 target_link_libraries(StarWarsText

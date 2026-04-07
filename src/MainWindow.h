@@ -9,6 +9,7 @@ class QStackedWidget;
 class QTabWidget;
 class QToolButton;
 class CrawlWindow;
+class StarsEditorWidget;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -46,7 +47,7 @@ private:
     QWidget        *m_editorPage      = nullptr;
     QTabWidget     *m_editorTabs      = nullptr;
     QPlainTextEdit *m_editor          = nullptr;
-    QPlainTextEdit *m_starsEditor     = nullptr;
+    StarsEditorWidget *m_starsEditor  = nullptr;
     QLabel         *m_statusLabel     = nullptr;
     QLabel         *m_launcherTitle   = nullptr;
     QLabel         *m_launcherSubtitle= nullptr;

@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "CrawlWindow.h"
+#include "StarsEditorWidget.h"
 #include "TextIO.h"
 
 #include <QAction>
@@ -104,11 +105,11 @@ MainWindow::MainWindow() {
     ensureCrawlWindow();
 
     connect(m_editor->document(), &QTextDocument::modificationChanged, this, [this](bool) {
-        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->document()->isModified();
+        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->isModified();
         setStatusForCurrentPath(currentEditingStatus());
     });
-    connect(m_starsEditor->document(), &QTextDocument::modificationChanged, this, [this](bool) {
-        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->document()->isModified();
+    connect(m_starsEditor, &StarsEditorWidget::modificationChanged, this, [this](bool) {
+        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->isModified();
         setStatusForCurrentPath(currentEditingStatus());
     });
 
@@ -206,11 +207,10 @@ void MainWindow::buildEditorPage() {
 
     m_editor = new QPlainTextEdit(m_editorPage);
     m_editor->setStyleSheet(editorStyle);
-    m_starsEditor = new QPlainTextEdit(m_editorPage);
-    m_starsEditor->setStyleSheet(editorStyle);
+    m_starsEditor = new StarsEditorWidget(m_editorPage);
 
     m_editorTabs->addTab(m_editor, QStringLiteral("text.txt"));
-    m_editorTabs->addTab(m_starsEditor, QStringLiteral("stars.json"));
+    m_editorTabs->addTab(m_starsEditor, QStringLiteral("Stars"));
 
     rootLayout->addLayout(toolbarLayout);
     rootLayout->addWidget(m_editorTabs, 1);
@@ -355,9 +355,8 @@ void MainWindow::configureAction(QAction *action, const QString &text, const QKe
 
 void MainWindow::loadIntoEditor() {
     m_editor->setPlainText(loadRawText());
-    m_starsEditor->setPlainText(loadRawStars());
+    m_starsEditor->setStars(parseStars(loadRawStars()));
     m_editor->document()->setModified(false);
-    m_starsEditor->document()->setModified(false);
     m_hasUnsavedChanges = false;
 }
 
@@ -399,7 +398,7 @@ bool MainWindow::saveEditorContents() {
     }
 
     QString starsSavedPath;
-    if (!saveRawStars(m_starsEditor->toPlainText(), &starsSavedPath)) {
+    if (!saveRawStars(serializeStars(m_starsEditor->stars()), &starsSavedPath)) {
         QMessageBox::warning(
             this,
             QStringLiteral("Save failed"),
@@ -407,7 +406,7 @@ bool MainWindow::saveEditorContents() {
         return false;
     }
     m_editor->document()->setModified(false);
-    m_starsEditor->document()->setModified(false);
+    m_starsEditor->setModified(false);
     m_hasUnsavedChanges = false;
     setStatusForCurrentPath(QStringLiteral("Saved"), textSavedPath);
     return true;
@@ -432,7 +431,7 @@ bool MainWindow::confirmDiscardOrSave() {
 void MainWindow::enterShowMode() {
     ensureCrawlWindow();
     m_crawlWindow->setContent(parseContent(m_editor->toPlainText()));
-    m_crawlWindow->setGoalStars(parseStars(m_starsEditor->toPlainText()));
+    m_crawlWindow->setGoalStars(m_starsEditor->stars());
     m_crawlWindow->setShowMode(
         m_startupMode == StartupMode::Live
             ? CrawlWindow::ShowMode::Live
