@@ -157,21 +157,24 @@ void StarsEditorWidget::buildPropertyForm(QWidget *parent) {
     form->addRow(QStringLiteral("Radius"), m_radiusSpin);
 
     m_posXSpin = new QDoubleSpinBox(group);
-    m_posXSpin->setRange(-640.0, 640.0);
-    m_posXSpin->setSingleStep(10.0);
-    m_posXSpin->setDecimals(0);
+    m_posXSpin->setRange(0.0, 100.0);
+    m_posXSpin->setSingleStep(1.0);
+    m_posXSpin->setDecimals(1);
+    m_posXSpin->setSuffix(QStringLiteral(" %"));
     form->addRow(QStringLiteral("Position X"), m_posXSpin);
 
     m_posYSpin = new QDoubleSpinBox(group);
-    m_posYSpin->setRange(-520.0, 440.0);
-    m_posYSpin->setSingleStep(10.0);
-    m_posYSpin->setDecimals(0);
+    m_posYSpin->setRange(0.0, 100.0);
+    m_posYSpin->setSingleStep(1.0);
+    m_posYSpin->setDecimals(1);
+    m_posYSpin->setSuffix(QStringLiteral(" %"));
     form->addRow(QStringLiteral("Position Y"), m_posYSpin);
 
     m_posZSpin = new QDoubleSpinBox(group);
-    m_posZSpin->setRange(-1000.0, 2360.0);
-    m_posZSpin->setSingleStep(10.0);
-    m_posZSpin->setDecimals(0);
+    m_posZSpin->setRange(0.0, 100.0);
+    m_posZSpin->setSingleStep(1.0);
+    m_posZSpin->setDecimals(1);
+    m_posZSpin->setSuffix(QStringLiteral(" %"));
     form->addRow(QStringLiteral("Position Z"), m_posZSpin);
 
     auto *outerLayout = new QVBoxLayout(parent);
@@ -233,9 +236,9 @@ void StarsEditorWidget::updatePropertyForm() {
     updateColorButton(m_coreColorBtn, star.coreColor);
     updateColorButton(m_glowColorBtn, star.glowColor);
     m_radiusSpin->setValue(star.radius);
-    m_posXSpin->setValue(static_cast<double>(star.position.x()));
-    m_posYSpin->setValue(static_cast<double>(star.position.y()));
-    m_posZSpin->setValue(static_cast<double>(star.position.z()));
+    m_posXSpin->setValue(static_cast<double>((star.position.x() - kSpaceMinX) / (kSpaceMaxX - kSpaceMinX)) * 100.0);
+    m_posYSpin->setValue(static_cast<double>((star.position.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY)) * 100.0);
+    m_posZSpin->setValue(static_cast<double>((star.position.z() - kEditorMinZ) / (kSpaceMaxZ - kEditorMinZ)) * 100.0);
 
     m_updatingForm = false;
 }
@@ -248,9 +251,9 @@ void StarsEditorWidget::applyPropertyToStar() {
     star.text = m_nameEdit->text();
     star.radius = m_radiusSpin->value();
     star.position = QVector3D(
-        static_cast<float>(m_posXSpin->value()),
-        static_cast<float>(m_posYSpin->value()),
-        static_cast<float>(m_posZSpin->value()));
+        static_cast<float>(kSpaceMinX + (m_posXSpin->value() / 100.0) * (kSpaceMaxX - kSpaceMinX)),
+        static_cast<float>(kSpaceMinY + (m_posYSpin->value() / 100.0) * (kSpaceMaxY - kSpaceMinY)),
+        static_cast<float>(kEditorMinZ + (m_posZSpin->value() / 100.0) * (kSpaceMaxZ - kEditorMinZ)));
 
     m_starMap->updateStar(m_selectedIndex, star);
     syncListFromData();

@@ -30,11 +30,17 @@ public:
         Ending
     };
 
+    enum class HyperspaceMode {
+        Tunnel,
+        Particles
+    };
+
     explicit CrawlWindow(QWidget *parent = nullptr);
 
     void setContent(const CrawlContent &content);
     void setGoalStars(const std::vector<StarDefinition> &stars);
     void setShowMode(ShowMode mode);
+    void setHyperspaceMode(HyperspaceMode mode);
     void openShowWindow(bool fullscreen = false);
 
 signals:
@@ -201,10 +207,22 @@ private:
     qreal           m_threeStarsMessageOpacity = 0.0;
     qreal           m_threeStarsMessageScale   = 0.97;
 
-    // Ending finale
+    // Hyperspace / Ending finale
+    struct HyperParticle {
+        qreal dirX;        // cos(angle) — precomputed direction
+        qreal dirY;        // sin(angle) — precomputed direction
+        qreal distance;    // normalised distance from center (0 = center, 1 = edge)
+        qreal speed;       // distance increment per tick
+        qreal radius;      // dot radius in pixels
+        qreal alpha;       // 0–1
+        QColor color;
+    };
+
+    HyperspaceMode m_hyperspaceMode = HyperspaceMode::Tunnel;
     int   m_endingTick           = 0;
     qreal m_endingPanProgress    = 0.0;
     qreal m_endingApproach       = 0.0;
     qreal m_endingTextOpacity    = 0.0;
     QPointF m_endingShakeOffset;
+    std::vector<HyperParticle> m_hyperParticles;
 };

@@ -48,6 +48,7 @@ private:
     static constexpr float kSpaceMaxY =  440.0f;
     static constexpr float kSpaceMinZ = -1000.0f;
     static constexpr float kSpaceMaxZ =  2360.0f;
+    static constexpr float kEditorMinZ = 0.0f;
 
     static constexpr float kMoveStep = 20.0f;
     static constexpr float kWheelStep = 30.0f;

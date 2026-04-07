@@ -69,21 +69,45 @@ MainWindow::MainWindow() {
 
     toolbar->addSeparator();
 
-    m_windowedAction = toolbar->addAction(QStringLiteral("Current size"));
-    m_windowedAction->setCheckable(true);
     m_fullscreenAction = toolbar->addAction(QStringLiteral("Full screen"));
     m_fullscreenAction->setCheckable(true);
+    m_windowedAction = toolbar->addAction(QStringLiteral("Current size"));
+    m_windowedAction->setCheckable(true);
 
     auto *displayGroup = new QActionGroup(this);
     displayGroup->setExclusive(true);
-    displayGroup->addAction(m_windowedAction);
     displayGroup->addAction(m_fullscreenAction);
+    displayGroup->addAction(m_windowedAction);
 
     configureAction(m_liveAction, QStringLiteral("Live"), QKeySequence(QStringLiteral("Ctrl+L")));
     configureAction(m_editAction, QStringLiteral("Edit"), QKeySequence(QStringLiteral("Ctrl+E")));
     configureAction(m_videoGameAction, QStringLiteral("Video game"), QKeySequence(QStringLiteral("Ctrl+G")));
-    configureAction(m_windowedAction, QStringLiteral("Current size"), QKeySequence(QStringLiteral("Ctrl+1")));
-    configureAction(m_fullscreenAction, QStringLiteral("Full screen"), QKeySequence(QStringLiteral("Ctrl+2")));
+    configureAction(m_fullscreenAction, QStringLiteral("Full screen"), QKeySequence(QStringLiteral("Ctrl+1")));
+    configureAction(m_windowedAction, QStringLiteral("Current size"), QKeySequence(QStringLiteral("Ctrl+2")));
+
+    toolbar->addSeparator();
+
+    m_tunnelAction = toolbar->addAction(QStringLiteral("Tunnel"));
+    m_tunnelAction->setCheckable(true);
+    m_particlesAction = toolbar->addAction(QStringLiteral("Particles"));
+    m_particlesAction->setCheckable(true);
+
+    auto *hyperGroup = new QActionGroup(this);
+    hyperGroup->setExclusive(true);
+    hyperGroup->addAction(m_tunnelAction);
+    hyperGroup->addAction(m_particlesAction);
+
+    configureAction(m_tunnelAction, QStringLiteral("Tunnel"), QKeySequence(QStringLiteral("Ctrl+3")));
+    configureAction(m_particlesAction, QStringLiteral("Particles"), QKeySequence(QStringLiteral("Ctrl+4")));
+
+    connect(m_tunnelAction, &QAction::triggered, this, [this]() {
+        m_hyperspaceMode = 0;
+        refreshModeUi();
+    });
+    connect(m_particlesAction, &QAction::triggered, this, [this]() {
+        m_hyperspaceMode = 1;
+        refreshModeUi();
+    });
 
     connect(m_liveAction, &QAction::triggered, this, [this]() { activateMode(StartupMode::Live); });
     connect(m_editAction, &QAction::triggered, this, [this]() { activateMode(StartupMode::Edit); });
@@ -155,7 +179,7 @@ void MainWindow::activateMode(const StartupMode mode) {
 
 void MainWindow::applyStartupDefaults() {
     m_startupMode = StartupMode::Live;
-    m_startFullscreen = false;
+    m_startFullscreen = true;
 }
 
 void MainWindow::buildEditorPage() {
@@ -329,9 +353,36 @@ void MainWindow::buildLauncherPage() {
         refreshModeUi();
     });
 
-    displayRow->addWidget(m_windowedCard);
     displayRow->addWidget(m_fullscreenCard);
+    displayRow->addWidget(m_windowedCard);
     layout->addLayout(displayRow);
+
+    auto *hyperRow = new QHBoxLayout();
+    hyperRow->setSpacing(18);
+    m_tunnelCard = makeCard(
+        QStringLiteral("Tunnel\n\nRadial light tunnel with blue-white gradient and screen flash."),
+        126);
+    m_particlesCard = makeCard(
+        QStringLiteral("Particles\n\nParticle streams flying outward with trails and glow."),
+        126);
+
+    auto *hyperCardGroup = new QButtonGroup(this);
+    hyperCardGroup->setExclusive(true);
+    hyperCardGroup->addButton(m_tunnelCard);
+    hyperCardGroup->addButton(m_particlesCard);
+
+    connect(m_tunnelCard, &QToolButton::clicked, this, [this]() {
+        m_hyperspaceMode = 0;
+        refreshModeUi();
+    });
+    connect(m_particlesCard, &QToolButton::clicked, this, [this]() {
+        m_hyperspaceMode = 1;
+        refreshModeUi();
+    });
+
+    hyperRow->addWidget(m_tunnelCard);
+    hyperRow->addWidget(m_particlesCard);
+    layout->addLayout(hyperRow);
 
     auto *launchButton = new QPushButton(QStringLiteral("Open selected mode"), m_launcherPage);
     connect(launchButton, &QPushButton::clicked, this, [this]() {
@@ -436,6 +487,10 @@ void MainWindow::enterShowMode() {
         m_startupMode == StartupMode::Live
             ? CrawlWindow::ShowMode::Live
             : CrawlWindow::ShowMode::VideoGame);
+    m_crawlWindow->setHyperspaceMode(
+        m_hyperspaceMode == 0
+            ? CrawlWindow::HyperspaceMode::Tunnel
+            : CrawlWindow::HyperspaceMode::Particles);
     hide();
     m_crawlWindow->openShowWindow(m_startFullscreen);
     setStatusForCurrentPath(QStringLiteral("Showing"));
@@ -453,6 +508,10 @@ void MainWindow::refreshModeUi() {
     if (m_videoGameCard != nullptr)    m_videoGameCard->setChecked(m_startupMode == StartupMode::VideoGame);
     if (m_windowedCard != nullptr)     m_windowedCard->setChecked(!m_startFullscreen);
     if (m_fullscreenCard != nullptr)   m_fullscreenCard->setChecked(m_startFullscreen);
+    if (m_tunnelAction != nullptr)     m_tunnelAction->setChecked(m_hyperspaceMode == 0);
+    if (m_particlesAction != nullptr)  m_particlesAction->setChecked(m_hyperspaceMode == 1);
+    if (m_tunnelCard != nullptr)       m_tunnelCard->setChecked(m_hyperspaceMode == 0);
+    if (m_particlesCard != nullptr)    m_particlesCard->setChecked(m_hyperspaceMode == 1);
 
     if (m_pages != nullptr) {
         if (m_startupMode == StartupMode::Edit)

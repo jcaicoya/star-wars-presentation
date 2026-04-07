@@ -56,13 +56,18 @@ private:
     QToolButton    *m_videoGameCard   = nullptr;
     QToolButton    *m_windowedCard    = nullptr;
     QToolButton    *m_fullscreenCard  = nullptr;
+    QToolButton    *m_tunnelCard      = nullptr;
+    QToolButton    *m_particlesCard   = nullptr;
     QAction        *m_liveAction      = nullptr;
     QAction        *m_editAction      = nullptr;
     QAction        *m_videoGameAction = nullptr;
     QAction        *m_windowedAction  = nullptr;
     QAction        *m_fullscreenAction= nullptr;
+    QAction        *m_tunnelAction    = nullptr;
+    QAction        *m_particlesAction = nullptr;
     CrawlWindow    *m_crawlWindow     = nullptr;
     bool            m_hasUnsavedChanges = false;
     StartupMode     m_startupMode       = StartupMode::Live;
     bool            m_startFullscreen   = false;
+    int             m_hyperspaceMode    = 0; // 0 = Tunnel, 1 = Particles
 };

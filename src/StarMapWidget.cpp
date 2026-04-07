@@ -57,7 +57,7 @@ QPointF StarMapWidget::projectToScreen(const QVector3D &worldPos) const {
 
     const qreal nx = (worldPos.x() - kSpaceMinX) / (kSpaceMaxX - kSpaceMinX);
     const qreal ny = (worldPos.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY);
-    const qreal nz = (worldPos.z() - kSpaceMinZ) / (kSpaceMaxZ - kSpaceMinZ);
+    const qreal nz = (worldPos.z() - kEditorMinZ) / (kSpaceMaxZ - kEditorMinZ);
 
     return QPointF(
         cubeLeft + cubeSize * nx + depthExtent * nz,
@@ -133,10 +133,8 @@ void StarMapWidget::paintEvent(QPaintEvent *event) {
     painter.drawText(QPointF(frontRect.center().x() - 4.0, frontRect.bottom() + 28.0), QStringLiteral("X"));
     painter.setFont(valueFont);
     painter.setPen(valueColor);
-    painter.drawText(QPointF(frontRect.left() - 4.0, frontRect.bottom() + 16.0),
-                     QString::number(static_cast<int>(kSpaceMinX)));
-    painter.drawText(QPointF(frontRect.right() - 16.0, frontRect.bottom() + 16.0),
-                     QString::number(static_cast<int>(kSpaceMaxX)));
+    painter.drawText(QPointF(frontRect.left() - 4.0, frontRect.bottom() + 16.0), QStringLiteral("0%"));
+    painter.drawText(QPointF(frontRect.right() - 20.0, frontRect.bottom() + 16.0), QStringLiteral("100%"));
 
     // Y axis — along left edge of front face
     painter.setFont(labelFont);
@@ -144,10 +142,8 @@ void StarMapWidget::paintEvent(QPaintEvent *event) {
     painter.drawText(QPointF(frontRect.left() - 28.0, frontRect.center().y() + 4.0), QStringLiteral("Y"));
     painter.setFont(valueFont);
     painter.setPen(valueColor);
-    painter.drawText(QPointF(frontRect.left() - 32.0, frontRect.bottom() + 4.0),
-                     QString::number(static_cast<int>(kSpaceMinY)));
-    painter.drawText(QPointF(frontRect.left() - 32.0, frontRect.top() + 12.0),
-                     QString::number(static_cast<int>(kSpaceMaxY)));
+    painter.drawText(QPointF(frontRect.left() - 22.0, frontRect.bottom() + 4.0), QStringLiteral("0%"));
+    painter.drawText(QPointF(frontRect.left() - 32.0, frontRect.top() + 12.0), QStringLiteral("100%"));
 
     // Z axis — along the diagonal depth edge (bottom-left front to bottom-left back)
     painter.setFont(labelFont);
@@ -156,35 +152,37 @@ void StarMapWidget::paintEvent(QPaintEvent *event) {
     painter.drawText(QPointF(zMid.x() + 8.0, zMid.y() + 4.0), QStringLiteral("Z"));
     painter.setFont(valueFont);
     painter.setPen(valueColor);
-    painter.drawText(QPointF(frontRect.bottomRight().x() + 6.0, frontRect.bottomRight().y() + 4.0),
-                     QString::number(static_cast<int>(kSpaceMinZ)));
-    painter.drawText(QPointF(backRect.bottomRight().x() + 6.0, backRect.bottomRight().y() + 4.0),
-                     QString::number(static_cast<int>(kSpaceMaxZ)));
+    painter.drawText(QPointF(frontRect.bottomRight().x() + 6.0, frontRect.bottomRight().y() + 4.0), QStringLiteral("0%"));
+    painter.drawText(QPointF(backRect.bottomRight().x() + 6.0, backRect.bottomRight().y() + 4.0), QStringLiteral("100%"));
 
-    // ── Draw projection lines for selected star (behind the star dot) ────────
-    if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<int>(m_stars.size())) {
-        const StarDefinition &sel = m_stars[m_selectedIndex];
-        const QPointF sp = projectToScreen(sel.position);
+    // ── Draw projection lines for all stars (behind the star dots) ─────────
+    for (int i = 0; i < static_cast<int>(m_stars.size()); ++i) {
+        const StarDefinition &star = m_stars[i];
+        const QPointF sp = projectToScreen(star.position);
+        const bool selected = (i == m_selectedIndex);
+        const int lineAlpha = selected ? 90 : 40;
 
-        // Project to walls: X wall (left, same Y/Z), Y wall (bottom, same X/Z), Z wall (front, same X/Y)
-        const QPointF pWallX = projectToScreen(QVector3D(kSpaceMinX, sel.position.y(), sel.position.z()));
-        const QPointF pWallY = projectToScreen(QVector3D(sel.position.x(), kSpaceMinY, sel.position.z()));
-        const QPointF pWallZ = projectToScreen(QVector3D(sel.position.x(), sel.position.y(), kSpaceMinZ));
+        // Project to all 6 walls
+        const QPointF pXMin = projectToScreen(QVector3D(kSpaceMinX, star.position.y(), star.position.z()));
+        const QPointF pXMax = projectToScreen(QVector3D(kSpaceMaxX, star.position.y(), star.position.z()));
+        const QPointF pYMin = projectToScreen(QVector3D(star.position.x(), kSpaceMinY, star.position.z()));
+        const QPointF pYMax = projectToScreen(QVector3D(star.position.x(), kSpaceMaxY, star.position.z()));
+        const QPointF pZMin = projectToScreen(QVector3D(star.position.x(), star.position.y(), kEditorMinZ));
+        const QPointF pZMax = projectToScreen(QVector3D(star.position.x(), star.position.y(), kSpaceMaxZ));
 
-        QPen dashedPen(QColor(255, 255, 255, 70), 1.0, Qt::DotLine);
+        QPen dashedPen(QColor(255, 255, 255, lineAlpha), 1.0, Qt::DotLine);
         painter.setPen(dashedPen);
         painter.setBrush(Qt::NoBrush);
-        painter.drawLine(sp, pWallX);
-        painter.drawLine(sp, pWallY);
-        painter.drawLine(sp, pWallZ);
+        painter.drawLine(pXMin, pXMax);
+        painter.drawLine(pYMin, pYMax);
+        painter.drawLine(pZMin, pZMax);
 
         // Small markers at wall intersections
-        const QColor markerColor(255, 255, 255, 100);
+        const QColor markerColor(255, 255, 255, lineAlpha + 20);
         painter.setPen(Qt::NoPen);
         painter.setBrush(markerColor);
-        painter.drawEllipse(pWallX, 2.5, 2.5);
-        painter.drawEllipse(pWallY, 2.5, 2.5);
-        painter.drawEllipse(pWallZ, 2.5, 2.5);
+        for (const QPointF &wp : {pXMin, pXMax, pYMin, pYMax, pZMin, pZMax})
+            painter.drawEllipse(wp, 2.0, 2.0);
     }
 
     // ── Draw stars ───────────────────────────────────────────────────────────
@@ -212,7 +210,11 @@ void StarMapWidget::paintEvent(QPaintEvent *event) {
         painter.drawEllipse(point, selected ? kSelectedDotRadius : kStarDotRadius,
                             selected ? kSelectedDotRadius : kStarDotRadius);
 
-        // Label + coordinates for selected star
+        // Label + percentage coordinates for all stars
+        const qreal nx = static_cast<qreal>(star.position.x() - kSpaceMinX) / (kSpaceMaxX - kSpaceMinX) * 100.0;
+        const qreal ny = static_cast<qreal>(star.position.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY) * 100.0;
+        const qreal nz = static_cast<qreal>(star.position.z() - kEditorMinZ) / (kSpaceMaxZ - kEditorMinZ) * 100.0;
+
         const qreal labelX = point.x() + 10.0;
         qreal labelY = point.y() + 4.0;
         if (!star.text.isEmpty()) {
@@ -222,15 +224,13 @@ void StarMapWidget::paintEvent(QPaintEvent *event) {
             labelY += 14.0;
         }
 
-        if (selected) {
-            painter.setPen(QColor(160, 190, 210, 180));
-            painter.setFont(QFont(QStringLiteral("Consolas"), 8));
-            painter.drawText(QPointF(labelX, labelY),
-                             QStringLiteral("(%1, %2, %3)")
-                                 .arg(static_cast<int>(std::lround(star.position.x())))
-                                 .arg(static_cast<int>(std::lround(star.position.y())))
-                                 .arg(static_cast<int>(std::lround(star.position.z()))));
-        }
+        painter.setPen(QColor(160, 190, 210, selected ? 180 : 100));
+        painter.setFont(QFont(QStringLiteral("Consolas"), 8));
+        painter.drawText(QPointF(labelX, labelY),
+                         QStringLiteral("(%1%, %2%, %3%)")
+                             .arg(nx, 0, 'f', 1)
+                             .arg(ny, 0, 'f', 1)
+                             .arg(nz, 0, 'f', 1));
     }
 }
 
@@ -287,7 +287,7 @@ void StarMapWidget::wheelEvent(QWheelEvent *event) {
 
     const float dz = (event->angleDelta().y() > 0) ? kWheelStep : -kWheelStep;
     QVector3D &pos = m_stars[m_selectedIndex].position;
-    pos.setZ(std::clamp(pos.z() + dz, kSpaceMinZ, kSpaceMaxZ));
+    pos.setZ(std::clamp(pos.z() + dz, kEditorMinZ, kSpaceMaxZ));
 
     emit starMoved(m_selectedIndex, pos);
     update();
@@ -309,8 +309,8 @@ void StarMapWidget::keyPressEvent(QKeyEvent *event) {
     case Qt::Key_Right: pos.setX(std::clamp(pos.x() + kMoveStep, kSpaceMinX, kSpaceMaxX)); break;
     case Qt::Key_Up:    pos.setY(std::clamp(pos.y() + kMoveStep, kSpaceMinY, kSpaceMaxY)); break;
     case Qt::Key_Down:  pos.setY(std::clamp(pos.y() - kMoveStep, kSpaceMinY, kSpaceMaxY)); break;
-    case Qt::Key_W:     pos.setZ(std::clamp(pos.z() + kMoveStep, kSpaceMinZ, kSpaceMaxZ)); break;
-    case Qt::Key_S:     pos.setZ(std::clamp(pos.z() - kMoveStep, kSpaceMinZ, kSpaceMaxZ)); break;
+    case Qt::Key_W:     pos.setZ(std::clamp(pos.z() + kMoveStep, kEditorMinZ, kSpaceMaxZ)); break;
+    case Qt::Key_S:     pos.setZ(std::clamp(pos.z() - kMoveStep, kEditorMinZ, kSpaceMaxZ)); break;
     default:
         moved = false;
         QWidget::keyPressEvent(event);

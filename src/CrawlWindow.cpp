@@ -128,7 +128,7 @@ void CrawlWindow::setGoalStars(const std::vector<StarDefinition> &stars) {
         const qreal ny = clamp01((star.position.y() - kSpaceMinY) / (kSpaceMaxY - kSpaceMinY));
         m_starMessages.push_back({
             star.text,
-            QPointF(nx, ny),
+            QPointF(nx, 1.0 - ny),
             star.coreColor,
             star.glowColor
         });
@@ -137,6 +137,10 @@ void CrawlWindow::setGoalStars(const std::vector<StarDefinition> &stars) {
 
 void CrawlWindow::setShowMode(const ShowMode mode) {
     m_showMode = mode;
+}
+
+void CrawlWindow::setHyperspaceMode(const HyperspaceMode mode) {
+    m_hyperspaceMode = mode;
 }
 
 void CrawlWindow::openShowWindow(const bool fullscreen) {
@@ -281,6 +285,7 @@ void CrawlWindow::transitionTo(Phase phase) {
         m_endingTick        = 0;
         m_endingApproach    = 0.0;
         m_endingTextOpacity = 0.0;
+        m_hyperParticles.clear();
         break;
     }
 }
@@ -506,6 +511,84 @@ void CrawlWindow::tickThreeStars() {
 
 void CrawlWindow::tickEnding() {
     ++m_endingTick;
+
+    if (m_hyperspaceMode != HyperspaceMode::Particles)
+        return;
+
+    constexpr int kChargeEnd =  30;
+    constexpr int kJumpEnd   =  75;
+    constexpr int kHyperEnd  = 135;
+    constexpr int kMaxParticles = 500;
+
+    if (m_endingTick > kHyperEnd)
+        return;
+
+    auto *rng = QRandomGenerator::global();
+
+    // Determine spawn rate and base speed for current sub-phase
+    int spawnCount = 0;
+    qreal baseSpeed = 0.0;
+
+    if (m_endingTick <= kChargeEnd) {
+        const qreal t = static_cast<qreal>(m_endingTick) / kChargeEnd;
+        spawnCount = static_cast<int>(2 + 6 * t * t);
+        baseSpeed = 0.004 + 0.010 * t * t;
+    } else if (m_endingTick <= kJumpEnd) {
+        const qreal t = static_cast<qreal>(m_endingTick - kChargeEnd) / (kJumpEnd - kChargeEnd);
+        spawnCount = static_cast<int>(8 + 14 * t);
+        baseSpeed = 0.014 + 0.040 * t;
+    } else {
+        spawnCount = 0;
+        baseSpeed = 0.0;
+    }
+
+    // Respect particle cap
+    const int headroom = kMaxParticles - static_cast<int>(m_hyperParticles.size());
+    spawnCount = std::min(spawnCount, std::max(0, headroom));
+
+    // Spawn new particles at center
+    for (int i = 0; i < spawnCount; ++i) {
+        const qreal angle = rng->generateDouble() * 2.0 * 3.14159265358979323846;
+        HyperParticle p;
+        p.dirX     = std::cos(angle);
+        p.dirY     = std::sin(angle);
+        p.distance = 0.001 + rng->generateDouble() * 0.01;
+        p.speed    = baseSpeed * (0.6 + rng->generateDouble() * 0.8);
+        p.radius   = 0.8 + rng->generateDouble() * 1.8;
+        p.alpha    = 0.6 + rng->generateDouble() * 0.4;
+
+        const int variant = rng->bounded(3);
+        if (variant == 0)
+            p.color = QColor(200, 220, 255);
+        else if (variant == 1)
+            p.color = QColor(160, 190, 255);
+        else
+            p.color = QColor(255, 255, 255);
+
+        m_hyperParticles.push_back(p);
+    }
+
+    // Deceleration multiplier
+    qreal speedMul = 1.0;
+    if (m_endingTick > kJumpEnd) {
+        const qreal t = static_cast<qreal>(m_endingTick - kJumpEnd) / (kHyperEnd - kJumpEnd);
+        speedMul = (1.0 - t) * (1.0 - t);
+    }
+
+    // Update existing particles
+    for (auto &p : m_hyperParticles) {
+        p.distance += p.speed * speedMul;
+
+        // Fade out particles that reach the edge
+        if (p.distance > 0.8)
+            p.alpha *= 0.92;
+    }
+
+    // Remove dead particles
+    m_hyperParticles.erase(
+        std::remove_if(m_hyperParticles.begin(), m_hyperParticles.end(),
+            [](const HyperParticle &p) { return p.alpha < 0.01 || p.distance > 1.5; }),
+        m_hyperParticles.end());
 }
 
 // ── Per-phase paint ───────────────────────────────────────────────────────────
@@ -934,16 +1017,14 @@ void CrawlWindow::paintEnding(QPainter &painter) {
 
     painter.fillRect(rect(), QColor(0, 0, 0));
 
-    // ── Hyperspace (0–420 ticks ≈ 7 s) ──────────────────────────────────────
-    //   Phase 1 — Charge-up   :   0–120  (2 s)
-    //   Phase 2 — Jump        : 120–300  (3 s)
-    //   Phase 3 — Deceleration: 300–420  (2 s)
+    // ── Hyperspace ────────────────────────────────────────────────────────────
 
-    constexpr int kChargeEnd =  60;
-    constexpr int kJumpEnd   = 150;
-    constexpr int kHyperEnd  = 210;
+    constexpr int kChargeEnd =  30;
+    constexpr int kJumpEnd   =  75;
+    constexpr int kHyperEnd  = 135;
 
-    if (m_endingTick <= kHyperEnd) {
+    if (m_endingTick <= kHyperEnd && m_hyperspaceMode == HyperspaceMode::Tunnel) {
+        // ── Tunnel mode ─────────────────────────────────────────────────────
         // Compute normalised intensity per sub-phase
         qreal intensity = 0.0;   // 0 = still, 1 = full lightspeed
         qreal streakMul = 1.0;   // extra streak-length multiplier at peak
@@ -963,9 +1044,9 @@ void CrawlWindow::paintEnding(QPainter &painter) {
             streakMul   = 3.0 + 12.0 * t;    // streaks reach ×15 at peak
             tunnelAlpha = 0.3 + 0.5 * t;     // tunnel builds to 0.8
 
-            // White flash: ramps up during last 30 ticks of jump
-            if (m_endingTick > kJumpEnd - 30) {
-                const qreal ft = static_cast<qreal>(m_endingTick - (kJumpEnd - 30)) / 30.0;
+            // White flash: ramps up during last 15 ticks of jump
+            if (m_endingTick > kJumpEnd - 15) {
+                const qreal ft = static_cast<qreal>(m_endingTick - (kJumpEnd - 15)) / 15.0;
                 flashAlpha = ft * ft;         // quadratic ramp into flash
             }
         } else {
@@ -973,9 +1054,9 @@ void CrawlWindow::paintEnding(QPainter &painter) {
             const qreal t = static_cast<qreal>(m_endingTick - kJumpEnd) / (kHyperEnd - kJumpEnd);
             const qreal inv = 1.0 - t;
 
-            // Flash peaks at decel start then fades quickly (first 40 ticks)
-            if (m_endingTick < kJumpEnd + 40) {
-                flashAlpha = 1.0 - easeOutCubic(static_cast<qreal>(m_endingTick - kJumpEnd) / 40.0);
+            // Flash peaks at decel start then fades quickly (first 20 ticks)
+            if (m_endingTick < kJumpEnd + 20) {
+                flashAlpha = 1.0 - easeOutCubic(static_cast<qreal>(m_endingTick - kJumpEnd) / 20.0);
             }
 
             intensity   = inv * inv;          // quadratic ease-out
@@ -1031,9 +1112,10 @@ void CrawlWindow::paintEnding(QPainter &painter) {
                 c = QColor(std::min(r, 255), std::min(g, 255), std::min(b, 255), c.alpha());
             }
 
-            // Fade out during deceleration tail
-            if (m_endingTick > kJumpEnd + 60) {
-                const qreal fade = clamp01(static_cast<qreal>(m_endingTick - kJumpEnd - 60) / (kHyperEnd - kJumpEnd - 60));
+            // Fade out during deceleration tail (last 40% of decel)
+            const int fadeStart = kJumpEnd + (kHyperEnd - kJumpEnd) * 6 / 10;
+            if (m_endingTick > fadeStart) {
+                const qreal fade = clamp01(static_cast<qreal>(m_endingTick - fadeStart) / (kHyperEnd - fadeStart));
                 c.setAlpha(static_cast<int>(c.alpha() * (1.0 - fade)));
             }
 
@@ -1059,6 +1141,82 @@ void CrawlWindow::paintEnding(QPainter &painter) {
         painter.restore();
 
         // White flash overlay (drawn without shake)
+        if (flashAlpha > 0.01) {
+            painter.fillRect(rect(), QColor(255, 255, 255, static_cast<int>(255 * flashAlpha)));
+        }
+    }
+
+    if (m_endingTick <= kHyperEnd && m_hyperspaceMode == HyperspaceMode::Particles) {
+        // ── Particles mode ──────────────────────────────────────────────────
+
+        // Screen shake
+        qreal shakeAmount = 0.0;
+        if (m_endingTick < kChargeEnd) {
+            const qreal t = static_cast<qreal>(m_endingTick) / kChargeEnd;
+            shakeAmount = 1.5 * t * t * t;
+        } else if (m_endingTick < kJumpEnd) {
+            shakeAmount = 2.5;
+        } else {
+            const qreal t = static_cast<qreal>(m_endingTick - kJumpEnd) / (kHyperEnd - kJumpEnd);
+            shakeAmount = 2.5 * (1.0 - t) * (1.0 - t);
+        }
+
+        if (shakeAmount > 0.01) {
+            auto *rng = QRandomGenerator::global();
+            m_endingShakeOffset = QPointF(
+                (rng->generateDouble() - 0.5) * 2.0 * shakeAmount,
+                (rng->generateDouble() - 0.5) * 2.0 * shakeAmount);
+        } else {
+            m_endingShakeOffset = QPointF(0, 0);
+        }
+
+        painter.save();
+        painter.translate(m_endingShakeOffset);
+
+        // Trail length multiplier per sub-phase
+        qreal trailMul = 1.0;
+        if (m_endingTick < kChargeEnd) {
+            const qreal t = static_cast<qreal>(m_endingTick) / kChargeEnd;
+            trailMul = 1.0 + 4.0 * t * t;
+        } else if (m_endingTick < kJumpEnd) {
+            const qreal t = static_cast<qreal>(m_endingTick - kChargeEnd) / (kJumpEnd - kChargeEnd);
+            trailMul = 5.0 + 15.0 * t;
+        } else {
+            const qreal t = static_cast<qreal>(m_endingTick - kJumpEnd) / (kHyperEnd - kJumpEnd);
+            const qreal inv = 1.0 - t;
+            trailMul = 1.0 + 19.0 * inv * inv;
+        }
+
+        // Draw each particle as a single bright streak
+        for (const HyperParticle &p : m_hyperParticles) {
+            const qreal screenDist = p.distance * maxDim;
+
+            const QPointF tip(
+                center.x() + p.dirX * screenDist,
+                center.y() + p.dirY * screenDist);
+
+            const qreal trailLen = p.speed * trailMul * maxDim * 1.5;
+            const qreal tailDist = std::max(0.0, screenDist - trailLen);
+            const QPointF tail(
+                center.x() + p.dirX * tailDist,
+                center.y() + p.dirY * tailDist);
+
+            QColor c = p.color;
+            c.setAlpha(static_cast<int>(255 * p.alpha));
+            painter.setPen(QPen(c, p.radius, Qt::SolidLine, Qt::RoundCap));
+            painter.drawLine(tail, tip);
+        }
+
+        painter.restore();
+
+        // White flash at jump-to-decel transition
+        qreal flashAlpha = 0.0;
+        if (m_endingTick > kJumpEnd - 15 && m_endingTick <= kJumpEnd) {
+            const qreal ft = static_cast<qreal>(m_endingTick - (kJumpEnd - 15)) / 15.0;
+            flashAlpha = ft * ft;
+        } else if (m_endingTick > kJumpEnd && m_endingTick < kJumpEnd + 20) {
+            flashAlpha = 1.0 - easeOutCubic(static_cast<qreal>(m_endingTick - kJumpEnd) / 20.0);
+        }
         if (flashAlpha > 0.01) {
             painter.fillRect(rect(), QColor(255, 255, 255, static_cast<int>(255 * flashAlpha)));
         }
@@ -1401,7 +1559,7 @@ QPointF CrawlWindow::projectSpacePoint(const QVector3D &worldPoint, qreal *scale
     if (scale != nullptr)
         *scale = pointScale;
     return QPointF(width() * 0.5 + relative.x() * pointScale,
-                   height() * 0.5 + relative.y() * pointScale);
+                   height() * 0.5 - relative.y() * pointScale);
 }
 
 int CrawlWindow::activeGoalStarIndex() const {

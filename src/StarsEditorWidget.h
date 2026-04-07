@@ -58,4 +58,13 @@ private:
     int  m_selectedIndex = -1;
     bool m_modified      = false;
     bool m_updatingForm  = false;
+
+    // Space coordinate bounds (mirrored from StarMapWidget)
+    static constexpr float kSpaceMinX = -640.0f;
+    static constexpr float kSpaceMaxX =  640.0f;
+    static constexpr float kSpaceMinY = -520.0f;
+    static constexpr float kSpaceMaxY =  440.0f;
+    static constexpr float kSpaceMinZ = -1000.0f;
+    static constexpr float kSpaceMaxZ =  2360.0f;
+    static constexpr float kEditorMinZ = 0.0f;
 };
