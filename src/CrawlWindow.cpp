@@ -435,7 +435,7 @@ void CrawlWindow::tickSpaceflight() {
         if (m_liveFlight.targetReached
             && m_liveFlight.autoTargetIndex + 1 >= static_cast<int>(m_goalStars.size())) {
             ++m_liveFlight.legTick;
-            if (m_liveFlight.legTick >= 90)
+            if (m_liveFlight.legTick >= 30)
                 transitionTo(Phase::Hyperspace);
         }
 
@@ -836,9 +836,14 @@ void CrawlWindow::paintHyperspace(QPainter &painter) {
     const QPointF center(static_cast<qreal>(w) * 0.5, static_cast<qreal>(h) * 0.5);
     const qreal maxDim = std::max<qreal>(w, h);
 
+    if (m_hyperspaceTick > kHyperspaceEnd) {
+        paintStarfield(painter);
+        return;
+    }
+
     painter.fillRect(rect(), QColor(0, 0, 0));
 
-    if (m_hyperspaceTick <= kHyperspaceEnd && m_hyperspaceMode == HyperspaceMode::Tunnel) {
+    if (m_hyperspaceMode == HyperspaceMode::Tunnel) {
         qreal intensity = 0.0;
         qreal streakMul = 1.0;
         qreal tunnelAlpha = 0.0;
@@ -913,12 +918,6 @@ void CrawlWindow::paintHyperspace(QPainter &painter) {
                 const int g = static_cast<int>(c.green() + (220 - c.green()) * blend);
                 const int b = static_cast<int>(c.blue()  + (255 - c.blue())  * blend);
                 c = QColor(std::min(r, 255), std::min(g, 255), std::min(b, 255), c.alpha());
-            }
-
-            const int fadeStart = kHyperspaceJumpEnd + (kHyperspaceEnd - kHyperspaceJumpEnd) * 6 / 10;
-            if (m_hyperspaceTick > fadeStart) {
-                const qreal fade = clamp01(static_cast<qreal>(m_hyperspaceTick - fadeStart) / (kHyperspaceEnd - fadeStart));
-                c.setAlpha(static_cast<int>(c.alpha() * (1.0 - fade)));
             }
 
             const qreal penWidth = std::max<qreal>(1.0, star.radius * (1.0 + intensity * 1.5));
