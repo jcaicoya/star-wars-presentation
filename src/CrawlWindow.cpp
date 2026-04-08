@@ -1294,18 +1294,23 @@ void CrawlWindow::paintOutro(QPainter &painter) {
         }
     }
 
-    // ── Star labels ──────────────────────────────────────────────────────
-    constexpr int kTextRevealTick = 90;  // relative to star animation start
-    if (starTick > kTextRevealTick) {
-        const qreal textOpacity = easeOutCubic(clamp01(static_cast<qreal>(starTick - kTextRevealTick) / 60.0));
-        painter.setOpacity(textOpacity);
+    // ── Star labels (staggered reveal) ─────────────────────────────────
+    {
+        constexpr int kFirstLabelTick = 90;   // relative to star animation start
+        constexpr int kLabelInterval  = 30;   // ticks between each label
+        constexpr int kLabelFadeTicks = 50;
 
         QFont bodyFont(QStringLiteral("Segoe UI"), std::max<int>(16, static_cast<int>(h * 0.025)), QFont::DemiBold);
         painter.setFont(bodyFont);
-        painter.setPen(QColor(220, 230, 240));
 
         auto drawLabel = [&](int index, const QPointF &nodePos, bool below) {
             if (index >= static_cast<int>(m_starMessages.size())) return;
+            const int labelStart = kFirstLabelTick + index * kLabelInterval;
+            if (starTick <= labelStart) return;
+
+            const qreal opacity = easeOutCubic(clamp01(static_cast<qreal>(starTick - labelStart) / kLabelFadeTicks));
+            painter.setOpacity(opacity);
+            painter.setPen(QColor(220, 230, 240));
 
             const qreal offset = nodeRadius * 2.0;
             QRectF textRect;

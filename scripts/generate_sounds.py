@@ -123,13 +123,13 @@ def generate_engine():
 
 
 def generate_hyperspace_accel():
-    """Hyperspace acceleration — ~2.0s.
+    """Hyperspace acceleration — ~3.0s.
 
     Charge-up phase: deep rumble building with rising resonant tones.
     Jump peak: explosive noise burst with high-frequency content.
-    Matches ticks 0-75 (charge 0-30, jump 30-75) at ~16-20ms/tick.
+    Covers the full charge + jump visual with a generous tail.
     """
-    duration = 2.0
+    duration = 3.0
     n = int(duration * SAMPLE_RATE)
 
     # Precompute noise layers
@@ -187,13 +187,13 @@ def generate_hyperspace_accel():
 
 
 def generate_hyperspace_decel():
-    """Hyperspace deceleration — ~2.2s.
+    """Hyperspace deceleration — ~3.0s.
 
     Starts at high energy (matching where accel left off), rapidly
     decays with falling pitch and a settling low thump.
-    Matches ticks 75-165 (deceleration + settle) at ~16-20ms/tick.
+    Covers the full deceleration + settle visual with a generous tail.
     """
-    duration = 2.2
+    duration = 3.0
     n = int(duration * SAMPLE_RATE)
 
     noise_raw = white_noise(n, seed=300)
@@ -246,8 +246,8 @@ def generate_hyperspace_decel():
 
 
 def generate_outro():
-    """Warm ambient pad chord (~3.5s with natural fade-out)."""
-    duration = 3.5
+    """Warm ambient pad chord (~6.0s with natural fade-out)."""
+    duration = 6.0
     n = int(duration * SAMPLE_RATE)
     samples = []
 
@@ -263,8 +263,8 @@ def generate_outro():
     for i in range(n):
         t = i / SAMPLE_RATE
 
-        # ASR envelope: 0.8s attack, sustain until 1.8s, 1.7s release
-        env = envelope(t, 0.8, 1.8, 3.5)
+        # ASR envelope: 1.0s attack, sustain until 3.5s, 2.5s release
+        env = envelope(t, 1.0, 3.5, 6.0)
 
         # Gentle vibrato
         vibrato = 1.0 + 0.003 * math.sin(2.0 * math.pi * 4.5 * t)
