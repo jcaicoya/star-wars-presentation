@@ -200,4 +200,5 @@ private:
 
     // Outro phase
     int   m_outroTick = 0;
+    int   m_outroFinalTick = -1; // <0 = recap, >=0 = final message
 };

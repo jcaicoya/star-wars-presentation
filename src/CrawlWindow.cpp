@@ -294,6 +294,7 @@ void CrawlWindow::transitionTo(Phase phase) {
         break;
     case Phase::Outro:
         m_outroTick = 0;
+        m_outroFinalTick = -1;
         break;
     }
 }
@@ -330,6 +331,10 @@ void CrawlWindow::advanceToNextPhase() {
     case Phase::Hyperspace:
         break;
     case Phase::Outro:
+        if (m_outroFinalTick < 0)
+            m_outroFinalTick = 0;
+        else
+            close();
         break;
     }
 }
@@ -548,6 +553,8 @@ void CrawlWindow::tickHyperspace() {
 
 void CrawlWindow::tickOutro() {
     ++m_outroTick;
+    if (m_outroFinalTick >= 0)
+        ++m_outroFinalTick;
 }
 
 // ── Per-phase paint ───────────────────────────────────────────────────────────
@@ -1000,8 +1007,34 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     const int w = std::max<int>(1, width());
     const int h = std::max<int>(1, height());
 
-    painter.fillRect(rect(), QColor(0, 0, 0));
+    paintStarfield(painter);
 
+    // ── Final message sub-phase ──────────────────────────────────────────
+    if (m_outroFinalTick >= 0) {
+        constexpr int kFinalFadeIn  = 75;
+        constexpr int kFinalHold    = 150;
+        constexpr int kFinalFadeOut = 75;
+
+        int alpha;
+        if (m_outroFinalTick < kFinalFadeIn) {
+            alpha = (m_outroFinalTick * 255) / kFinalFadeIn;
+        } else if (m_outroFinalTick < kFinalFadeIn + kFinalHold) {
+            alpha = 255;
+        } else {
+            const int fadeOutTick = m_outroFinalTick - kFinalFadeIn - kFinalHold;
+            alpha = 255 - (fadeOutTick * 255) / kFinalFadeOut;
+        }
+        alpha = std::clamp(alpha, 0, 255);
+
+        const int fontSize = std::max(16, static_cast<int>(h * 0.042));
+        QFont font(QStringLiteral("Arial"), fontSize, QFont::Normal, /*italic=*/true);
+        painter.setFont(font);
+        painter.setPen(QColor(100, 180, 220, alpha));
+        painter.drawText(rect(), Qt::AlignCenter, m_content.finalSentence);
+        return;
+    }
+
+    // ── Star recap sub-phase ─────────────────────────────────────────────
     const qreal reveal = clamp01(static_cast<qreal>(m_outroTick) / 90.0);
     const qreal logoAlpha = easeOutCubic(reveal);
 
@@ -1023,6 +1056,18 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     const qreal nodeRadius = h * 0.07;
     const qreal glowRadius = nodeRadius * 2.5;
 
+    // ── Header text ──────────────────────────────────────────────────────
+    if (!m_content.planetHeader.isEmpty() && logoAlpha > 0.0) {
+        const qreal headerAlpha = easeOutCubic(clamp01(static_cast<qreal>(m_outroTick) / 60.0));
+        const int headerSize = std::max(18, static_cast<int>(h * 0.035));
+        QFont headerFont(QStringLiteral("Segoe UI"), headerSize, QFont::Bold);
+        painter.setFont(headerFont);
+        painter.setPen(QColor(220, 230, 245, static_cast<int>(255 * headerAlpha)));
+        QRectF headerRect(0, h * 0.08, w, h * 0.12);
+        painter.drawText(headerRect, Qt::AlignHCenter | Qt::AlignVCenter, m_content.planetHeader);
+    }
+
+    // ── Path and stars ───────────────────────────────────────────────────
     if (logoAlpha > 0.0) {
         qreal p1 = clamp01(logoAlpha * 3.0);
         QLinearGradient grad1(node1, node2);
@@ -1070,6 +1115,7 @@ void CrawlWindow::paintOutro(QPainter &painter) {
         drawStar(node4, cyanCore, cyanGlow, true);
     }
 
+    // ── Star labels ──────────────────────────────────────────────────────
     constexpr int kTextRevealTick = 90;
     if (m_outroTick > kTextRevealTick) {
         const qreal textOpacity = easeOutCubic(clamp01(static_cast<qreal>(m_outroTick - kTextRevealTick) / 60.0));
