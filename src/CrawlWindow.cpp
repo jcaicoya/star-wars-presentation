@@ -1338,11 +1338,12 @@ void CrawlWindow::rebuildLines() {
     if (!m_content.subtitle.trimmed().isEmpty())
         appendLine(m_content.subtitle, subtitleFont, LineAlignment::Center, viewport.height() * 0.018);
 
+    const int lineLimit = effectiveBodyLineLimit(m_content.bodyLines);
     for (const QString &line : m_content.bodyLines) {
         if (line.trimmed().isEmpty())
             appendLine(QString(), bodyFont, LineAlignment::Left, viewport.height() * 0.004);
         else
-            appendLine(line, bodyFont, LineAlignment::Left, viewport.height() * 0.0015);
+            appendLine(line.left(lineLimit), bodyFont, LineAlignment::Left, viewport.height() * 0.0015);
     }
 
     renderCrawlImage();
@@ -1365,7 +1366,8 @@ void CrawlWindow::renderCrawlImage() {
     const QRectF viewport = crawlViewport();
     const QFont bodyFont(QStringLiteral("Consolas"), std::max(14, static_cast<int>(viewport.height() / 27.0)));
     const QFontMetricsF bodyMetrics(bodyFont);
-    const qreal bodyColumnWidth = bodyMetrics.horizontalAdvance(QStringLiteral("X")) * 38.0;
+    const int lineLimit = effectiveBodyLineLimit(m_content.bodyLines);
+    const qreal bodyColumnWidth = bodyMetrics.horizontalAdvance(QStringLiteral("X")) * static_cast<qreal>(lineLimit);
     m_sourceWindowHeight = std::max(860.0, viewport.height() * 3.35);
     const qreal entryPadding = m_sourceWindowHeight * 1.0;
     const qreal exitPadding  = m_sourceWindowHeight * 0.45;

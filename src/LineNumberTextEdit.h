@@ -11,9 +11,11 @@ public:
     explicit LineNumberTextEdit(QWidget *parent = nullptr);
 
     int lineNumberAreaWidth() const;
+    void setColumnGuide(int column);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private:
     void updateLineNumberAreaWidth();
@@ -21,6 +23,7 @@ private:
     void paintLineNumbers(QPaintEvent *event);
 
     LineNumberArea *m_lineNumberArea;
+    int m_columnGuide = -1;
     friend class LineNumberArea;
 };
 

@@ -33,6 +33,25 @@ void LineNumberTextEdit::resizeEvent(QResizeEvent *event) {
                                   lineNumberAreaWidth(), cr.height());
 }
 
+void LineNumberTextEdit::setColumnGuide(const int column) {
+    if (m_columnGuide == column)
+        return;
+    m_columnGuide = column;
+    viewport()->update();
+}
+
+void LineNumberTextEdit::paintEvent(QPaintEvent *event) {
+    QPlainTextEdit::paintEvent(event);
+
+    if (m_columnGuide > 0) {
+        const qreal charWidth = fontMetrics().horizontalAdvance(QLatin1Char('X'));
+        const qreal x = charWidth * m_columnGuide + contentOffset().x();
+        QPainter painter(viewport());
+        painter.setPen(QPen(QColor(0x2c, 0x36, 0x42), 1.0, Qt::DashLine));
+        painter.drawLine(QPointF(x, 0), QPointF(x, viewport()->height()));
+    }
+}
+
 void LineNumberTextEdit::updateLineNumberAreaWidth() {
     setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
 }

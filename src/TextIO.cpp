@@ -1,5 +1,7 @@
 #include "TextIO.h"
 
+#include <algorithm>
+
 #include <QCoreApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -151,6 +153,13 @@ QString serializeContent(const CrawlContent &content) {
     text += QStringLiteral("[planetheader]\n") + content.planetHeader + QStringLiteral("\n\n");
     text += QStringLiteral("[finalsentence]\n") + content.finalSentence + QStringLiteral("\n");
     return text;
+}
+
+int effectiveBodyLineLimit(const QStringList &bodyLines) {
+    int maxLen = 0;
+    for (const QString &line : bodyLines)
+        maxLen = std::max(maxLen, static_cast<int>(line.size()));
+    return std::clamp(maxLen, 30, 40);
 }
 
 std::vector<StarDefinition> parseStars(const QString &rawText) {

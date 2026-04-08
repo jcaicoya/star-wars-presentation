@@ -9,6 +9,7 @@ class QPlainTextEdit;
 class QStackedWidget;
 class QToolButton;
 class CrawlWindow;
+class LineNumberTextEdit;
 class StarsEditorWidget;
 struct CrawlContent;
 
@@ -37,6 +38,7 @@ private:
     void         loadIntoEditor();
     CrawlContent collectContent() const;
     void         updateStatusLabels();
+    void         updateBodyColumnGuide();
     void    configureCrawlWindow(CrawlWindow *window);
     void    ensureCrawlWindow();
     bool    saveEditorContents();
@@ -54,7 +56,7 @@ private:
     QPlainTextEdit *m_logoEdit           = nullptr;
     QLineEdit      *m_titleEdit          = nullptr;
     QLineEdit      *m_subtitleEdit       = nullptr;
-    QPlainTextEdit *m_bodyEdit           = nullptr;
+    LineNumberTextEdit *m_bodyEdit        = nullptr;
     QPlainTextEdit *m_headerEdit         = nullptr;
     QPlainTextEdit *m_finalEdit          = nullptr;
     StarsEditorWidget *m_starsEditor     = nullptr;

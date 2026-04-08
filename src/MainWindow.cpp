@@ -156,6 +156,7 @@ MainWindow::MainWindow() {
     connect(m_titleEdit, &QLineEdit::textChanged, this, trackTextChange);
     connect(m_subtitleEdit, &QLineEdit::textChanged, this, trackTextChange);
     connect(m_bodyEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
+    connect(m_bodyEdit, &QPlainTextEdit::textChanged, this, &MainWindow::updateBodyColumnGuide);
     connect(m_headerEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
     connect(m_finalEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
     connect(m_starsEditor, &StarsEditorWidget::modificationChanged, this, [this](bool) {
@@ -282,7 +283,8 @@ void MainWindow::buildTextEditorPage() {
     centerCol->setSpacing(4);
 
     makeLabel(QStringLiteral("Body"), centerCol);
-    makeMultiEdit(m_bodyEdit);
+    m_bodyEdit = new LineNumberTextEdit(m_textEditorPage);
+    m_bodyEdit->setStyleSheet(multiStyle);
     centerCol->addWidget(m_bodyEdit, 1);
 
     columns->addLayout(centerCol, 2);
@@ -525,6 +527,11 @@ void MainWindow::updateStatusLabels() {
             textPath.isEmpty() ? resourceTextPath() : textPath));
     if (m_starsStatusLabel != nullptr)
         m_starsStatusLabel->setText(QStringLiteral("%1: stars.json").arg(prefix));
+}
+
+void MainWindow::updateBodyColumnGuide() {
+    const QStringList lines = m_bodyEdit->toPlainText().split(QLatin1Char('\n'));
+    m_bodyEdit->setColumnGuide(effectiveBodyLineLimit(lines));
 }
 
 void MainWindow::configureCrawlWindow(CrawlWindow *window) {

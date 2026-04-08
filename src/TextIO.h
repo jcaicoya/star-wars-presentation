@@ -13,5 +13,6 @@ bool    saveRawText(const QString &text, QString *savedPath = nullptr);
 bool    saveRawStars(const QString &text, QString *savedPath = nullptr);
 CrawlContent parseContent(const QString &rawText);
 QString serializeContent(const CrawlContent &content);
+int effectiveBodyLineLimit(const QStringList &bodyLines);
 std::vector<StarDefinition> parseStars(const QString &rawText);
 QString serializeStars(const std::vector<StarDefinition> &stars);
