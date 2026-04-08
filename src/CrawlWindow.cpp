@@ -1057,6 +1057,9 @@ void CrawlWindow::paintOutro(QPainter &painter) {
 }
 
 void CrawlWindow::paintHUD(QPainter &painter) {
+    if (m_showMode == ShowMode::Live)
+        return;
+
     const qint64 ms   = m_elapsedTimer.isValid() ? m_elapsedTimer.elapsed() : 0;
     const int    secs = static_cast<int>(ms / 1000);
     const QString timeStr = QStringLiteral("%1:%2")
