@@ -1026,7 +1026,7 @@ void CrawlWindow::paintOutro(QPainter &painter) {
         }
         alpha = std::clamp(alpha, 0, 255);
 
-        const int fontSize = std::max(16, static_cast<int>(h * 0.042));
+        const int fontSize = std::max(20, static_cast<int>(h * 0.058));
         QFont font(QStringLiteral("Arial"), fontSize, QFont::Normal, /*italic=*/true);
         painter.setFont(font);
         painter.setPen(QColor(100, 180, 220, alpha));
@@ -1047,13 +1047,13 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     QColor cyanCore(255, 255, 255, static_cast<int>(255 * logoAlpha));
     QColor cyanGlow(16, 163, 202, static_cast<int>(255 * logoAlpha));
 
-    QPointF node1(w * 0.30, h * 0.65);
-    QPointF node2(w * 0.43, h * 0.35);
-    QPointF node3(w * 0.56, h * 0.65);
-    QPointF node4(w * 0.69, h * 0.35);
+    QPointF node1(w * 0.30, h * 0.72);
+    QPointF node2(w * 0.43, h * 0.45);
+    QPointF node3(w * 0.56, h * 0.72);
+    QPointF node4(w * 0.69, h * 0.45);
 
-    const qreal pathWidth = h * 0.05;
-    const qreal nodeRadius = h * 0.07;
+    const qreal pathWidth = h * 0.04;
+    const qreal nodeRadius = h * 0.055;
     const qreal glowRadius = nodeRadius * 2.5;
 
     // ── Header text ──────────────────────────────────────────────────────
@@ -1062,8 +1062,8 @@ void CrawlWindow::paintOutro(QPainter &painter) {
         const int headerSize = std::max(18, static_cast<int>(h * 0.035));
         QFont headerFont(QStringLiteral("Segoe UI"), headerSize, QFont::Bold);
         painter.setFont(headerFont);
-        painter.setPen(QColor(220, 230, 245, static_cast<int>(255 * headerAlpha)));
-        QRectF headerRect(0, h * 0.08, w, h * 0.12);
+        painter.setPen(QColor(240, 178, 59, static_cast<int>(255 * headerAlpha)));
+        QRectF headerRect(0, h * 0.10, w, h * 0.12);
         painter.drawText(headerRect, Qt::AlignHCenter | Qt::AlignVCenter, m_content.planetHeader);
     }
 
