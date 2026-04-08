@@ -8,6 +8,7 @@
 #include <QRadialGradient>
 #include <QPaintEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPolygonF>
 #include <QRandomGenerator>
 #include <QResizeEvent>
@@ -747,8 +748,53 @@ void CrawlWindow::paintSpaceScene(QPainter &painter, const bool showGoalText, co
         // Fill only the bounding box of the glow for better performance
         painter.fillRect(QRectF(point.x() - glowRadius, point.y() - glowRadius, glowRadius * 2.0, glowRadius * 2.0), glow);
 
-        painter.setBrush(goal.coreColor);
+        // Sphere: offset radial gradient for 3D lit appearance
+        const QPointF highlight(point.x() - radius * 0.3, point.y() - radius * 0.3);
+        QRadialGradient sphere(highlight, radius * 2.0, highlight);
+        sphere.setColorAt(0.00, QColor(255, 255, 255, std::clamp(static_cast<int>(200 + emphasis * 55), 0, 255)));
+        sphere.setColorAt(0.15, goal.coreColor);
+        sphere.setColorAt(0.55, QColor(goal.glowColor.red() / 2, goal.glowColor.green() / 2, goal.glowColor.blue() / 2));
+        sphere.setColorAt(1.00, QColor(10, 10, 20));
+        painter.setBrush(sphere);
         painter.drawEllipse(point, radius, radius);
+
+        // Saturn ring on the last star
+        const bool isLast = (index + 1 == static_cast<int>(m_goalStars.size()));
+        if (isLast && radius > 2.0) {
+            const qreal ringOuterX = radius * 2.2;
+            const qreal ringOuterY = radius * 0.6;
+            const qreal ringInnerX = radius * 1.4;
+            const qreal ringInnerY = radius * 0.35;
+
+            painter.setPen(Qt::NoPen);
+
+            // Back half of ring (behind planet)
+            painter.save();
+            painter.setClipRect(QRectF(point.x() - ringOuterX - 2, point.y(),
+                                       ringOuterX * 2 + 4, ringOuterY + 2));
+            QColor ringColor(goal.glowColor.red(), goal.glowColor.green(), goal.glowColor.blue(),
+                             std::clamp(static_cast<int>(100 + emphasis * 100), 0, 255));
+            QPainterPath backRing;
+            backRing.addEllipse(point, ringOuterX, ringOuterY);
+            QPainterPath backHole;
+            backHole.addEllipse(point, ringInnerX, ringInnerY);
+            painter.setBrush(ringColor);
+            painter.drawPath(backRing - backHole);
+            painter.restore();
+
+            // Redraw planet on top of back ring
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(sphere);
+            painter.drawEllipse(point, radius, radius);
+
+            // Front half of ring (in front of planet)
+            painter.save();
+            painter.setClipRect(QRectF(point.x() - ringOuterX - 2, point.y() - ringOuterY - 2,
+                                       ringOuterX * 2 + 4, ringOuterY + 2));
+            painter.setBrush(ringColor);
+            painter.drawPath(backRing - backHole);
+            painter.restore();
+        }
     }
 
     if (crawlOverlayOpacity > 0.0) {
@@ -1098,21 +1144,62 @@ void CrawlWindow::paintOutro(QPainter &painter) {
             painter.drawLine(node3, node3 + (node4 - node3) * p3);
         }
 
-        auto drawStar = [&](const QPointF &pos, const QColor &core, const QColor &glow, bool isRing) {
-            QRadialGradient grad(pos, glowRadius, pos);
-            grad.setColorAt(0.00, core);
-            grad.setColorAt(0.20, QColor(glow.red(), glow.green(), glow.blue(), static_cast<int>(200 * logoAlpha)));
-            grad.setColorAt(1.00, QColor(0, 0, 0, 0));
-            painter.fillRect(QRectF(pos.x() - glowRadius, pos.y() - glowRadius, glowRadius * 2, glowRadius * 2), grad);
+        auto drawStar = [&](const QPointF &pos, const QColor &core, const QColor &glow, bool isSaturn) {
+            // Glow halo
+            QRadialGradient glowGrad(pos, glowRadius, pos);
+            glowGrad.setColorAt(0.00, core);
+            glowGrad.setColorAt(0.20, QColor(glow.red(), glow.green(), glow.blue(), static_cast<int>(200 * logoAlpha)));
+            glowGrad.setColorAt(1.00, QColor(0, 0, 0, 0));
+            painter.fillRect(QRectF(pos.x() - glowRadius, pos.y() - glowRadius, glowRadius * 2, glowRadius * 2), glowGrad);
 
-            if (isRing) {
-                painter.setPen(QPen(core, h * 0.03 * logoAlpha));
-                painter.setBrush(QColor(0, 0, 0));
-                painter.drawEllipse(pos, (nodeRadius - h * 0.01) * logoAlpha, (nodeRadius - h * 0.01) * logoAlpha);
-            } else {
+            const qreal r = nodeRadius * logoAlpha * 0.6;
+
+            // Sphere: offset gradient for 3D look
+            const QPointF hl(pos.x() - r * 0.3, pos.y() - r * 0.3);
+            QRadialGradient sphere(hl, r * 2.0, hl);
+            sphere.setColorAt(0.00, QColor(255, 255, 255, static_cast<int>(230 * logoAlpha)));
+            sphere.setColorAt(0.15, core);
+            sphere.setColorAt(0.55, QColor(glow.red() / 2, glow.green() / 2, glow.blue() / 2, static_cast<int>(255 * logoAlpha)));
+            sphere.setColorAt(1.00, QColor(10, 10, 20, static_cast<int>(255 * logoAlpha)));
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(sphere);
+            painter.drawEllipse(pos, r, r);
+
+            if (isSaturn && r > 2.0) {
+                const qreal ringOuterX = r * 2.2;
+                const qreal ringOuterY = r * 0.6;
+                const qreal ringInnerX = r * 1.4;
+                const qreal ringInnerY = r * 0.35;
+                QColor ringColor(glow.red(), glow.green(), glow.blue(), static_cast<int>(180 * logoAlpha));
+
+                QPainterPath outerRing;
+                outerRing.addEllipse(pos, ringOuterX, ringOuterY);
+                QPainterPath innerHole;
+                innerHole.addEllipse(pos, ringInnerX, ringInnerY);
+                const QPainterPath ring = outerRing - innerHole;
+
                 painter.setPen(Qt::NoPen);
-                painter.setBrush(core);
-                painter.drawEllipse(pos, nodeRadius * logoAlpha * 0.6, nodeRadius * logoAlpha * 0.6);
+
+                // Back half (below center)
+                painter.save();
+                painter.setClipRect(QRectF(pos.x() - ringOuterX - 2, pos.y(),
+                                           ringOuterX * 2 + 4, ringOuterY + 2));
+                painter.setBrush(ringColor);
+                painter.drawPath(ring);
+                painter.restore();
+
+                // Redraw sphere on top
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(sphere);
+                painter.drawEllipse(pos, r, r);
+
+                // Front half (above center)
+                painter.save();
+                painter.setClipRect(QRectF(pos.x() - ringOuterX - 2, pos.y() - ringOuterY - 2,
+                                           ringOuterX * 2 + 4, ringOuterY + 2));
+                painter.setBrush(ringColor);
+                painter.drawPath(ring);
+                painter.restore();
             }
         };
 
