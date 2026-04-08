@@ -195,6 +195,14 @@ void CrawlWindow::resizeEvent(QResizeEvent *event) {
     m_resizeDebounce.start();
 }
 
+void CrawlWindow::mousePressEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        advanceToNextPhase();
+        return;
+    }
+    QWidget::mousePressEvent(event);
+}
+
 void CrawlWindow::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Escape) {
         close();
