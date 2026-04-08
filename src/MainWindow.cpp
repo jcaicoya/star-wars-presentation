@@ -8,13 +8,15 @@
 #include <QCloseEvent>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+
+#include "LineNumberTextEdit.h"
 #include <QPushButton>
 #include <QShortcut>
 #include <QSizePolicy>
 #include <QStackedWidget>
-#include <QTextDocument>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -144,12 +146,20 @@ MainWindow::MainWindow() {
     buildStarsEditorPage();
     ensureCrawlWindow();
 
-    connect(m_editor->document(), &QTextDocument::modificationChanged, this, [this](bool) {
-        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->isModified();
+    auto trackTextChange = [this]() {
+        m_textFormModified = true;
+        m_hasUnsavedChanges = true;
         updateStatusLabels();
-    });
+    };
+    connect(m_introEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
+    connect(m_logoEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
+    connect(m_titleEdit, &QLineEdit::textChanged, this, trackTextChange);
+    connect(m_subtitleEdit, &QLineEdit::textChanged, this, trackTextChange);
+    connect(m_bodyEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
+    connect(m_headerEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
+    connect(m_finalEdit, &QPlainTextEdit::textChanged, this, trackTextChange);
     connect(m_starsEditor, &StarsEditorWidget::modificationChanged, this, [this](bool) {
-        m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->isModified();
+        m_hasUnsavedChanges = m_textFormModified || m_starsEditor->isModified();
         updateStatusLabels();
     });
 
@@ -193,31 +203,105 @@ void MainWindow::applyStartupDefaults() {
 }
 
 void MainWindow::buildTextEditorPage() {
-    const QString statusStyle = QStringLiteral("QLabel { color: #aab7c5; font: 11pt 'Segoe UI'; }");
-
     m_textEditorPage = new QWidget(this);
-    auto *layout = new QVBoxLayout(m_textEditorPage);
-    layout->setContentsMargins(16, 16, 16, 16);
-    layout->setSpacing(12);
+    auto *root = new QVBoxLayout(m_textEditorPage);
+    root->setContentsMargins(16, 12, 16, 12);
+    root->setSpacing(8);
 
     m_textStatusLabel = new QLabel(m_textEditorPage);
-    m_textStatusLabel->setMinimumWidth(320);
-    m_textStatusLabel->setStyleSheet(statusStyle);
-    layout->addWidget(m_textStatusLabel);
+    m_textStatusLabel->setStyleSheet(QStringLiteral("QLabel { color: #aab7c5; font: 11pt 'Segoe UI'; }"));
+    root->addWidget(m_textStatusLabel);
 
-    m_editor = new QPlainTextEdit(m_textEditorPage);
-    m_editor->setStyleSheet(
+    const QString multiStyle =
         "QPlainTextEdit {"
         "background: #161616;"
         "color: #f1f1f1;"
         "border: 1px solid #303030;"
-        "font: 16px 'Consolas';"
-        "padding: 12px;"
+        "font: 15px 'Consolas';"
+        "padding: 8px;"
         "selection-background-color: #404040;"
-        "}"
-    );
-    layout->addWidget(m_editor, 1);
+        "}";
 
+    const QString lineStyle =
+        "QLineEdit {"
+        "background: #161616;"
+        "color: #f1f1f1;"
+        "border: 1px solid #303030;"
+        "font: 15px 'Consolas';"
+        "padding: 8px;"
+        "selection-background-color: #404040;"
+        "}";
+
+    const QString labelStyle = QStringLiteral(
+        "QLabel { color: #7a8fa3; font: 600 10pt 'Segoe UI'; margin-top: 4px; }");
+
+    auto makeLabel = [&](const QString &text, QLayout *target) {
+        auto *label = new QLabel(text, m_textEditorPage);
+        label->setStyleSheet(labelStyle);
+        target->addWidget(label);
+    };
+
+    auto makeMultiEdit = [&](QPlainTextEdit *&field) {
+        auto *edit = new LineNumberTextEdit(m_textEditorPage);
+        edit->setStyleSheet(multiStyle);
+        field = edit;
+    };
+
+    auto makeLineEdit = [&](QLineEdit *&field) {
+        field = new QLineEdit(m_textEditorPage);
+        field->setStyleSheet(lineStyle);
+    };
+
+    auto *columns = new QHBoxLayout();
+    columns->setSpacing(16);
+
+    // ── Left column: Intro, Logo, Title, Subtitle ────────────────────────
+    auto *leftCol = new QVBoxLayout();
+    leftCol->setSpacing(4);
+
+    makeLabel(QStringLiteral("Intro"), leftCol);
+    makeMultiEdit(m_introEdit);
+    leftCol->addWidget(m_introEdit, 2);
+
+    makeLabel(QStringLiteral("Logo"), leftCol);
+    makeMultiEdit(m_logoEdit);
+    leftCol->addWidget(m_logoEdit, 1);
+
+    makeLabel(QStringLiteral("Title"), leftCol);
+    makeLineEdit(m_titleEdit);
+    leftCol->addWidget(m_titleEdit);
+
+    makeLabel(QStringLiteral("Subtitle"), leftCol);
+    makeLineEdit(m_subtitleEdit);
+    leftCol->addWidget(m_subtitleEdit);
+
+    columns->addLayout(leftCol, 1);
+
+    // ── Center column: Body ──────────────────────────────────────────────
+    auto *centerCol = new QVBoxLayout();
+    centerCol->setSpacing(4);
+
+    makeLabel(QStringLiteral("Body"), centerCol);
+    makeMultiEdit(m_bodyEdit);
+    centerCol->addWidget(m_bodyEdit, 1);
+
+    columns->addLayout(centerCol, 2);
+
+    // ── Right column: Header, Final ──────────────────────────────────────
+    auto *rightCol = new QVBoxLayout();
+    rightCol->setSpacing(4);
+
+    makeLabel(QStringLiteral("Header"), rightCol);
+    makeMultiEdit(m_headerEdit);
+    rightCol->addWidget(m_headerEdit, 1);
+
+    makeLabel(QStringLiteral("Final"), rightCol);
+    makeMultiEdit(m_finalEdit);
+    rightCol->addWidget(m_finalEdit, 1);
+
+    columns->addLayout(rightCol, 1);
+
+    root->addLayout(columns, 1);
     m_pages->addWidget(m_textEditorPage);
 }
 
@@ -406,10 +490,31 @@ void MainWindow::configureAction(QAction *action, const QString &text, const QKe
 }
 
 void MainWindow::loadIntoEditor() {
-    m_editor->setPlainText(loadRawText());
+    const CrawlContent content = parseContent(loadRawText());
+    m_introEdit->setPlainText(content.intro);
+    m_logoEdit->setPlainText(content.logo);
+    m_titleEdit->setText(content.title);
+    m_subtitleEdit->setText(content.subtitle);
+    m_bodyEdit->setPlainText(content.bodyLines.join(QLatin1Char('\n')));
+    m_headerEdit->setPlainText(content.planetHeader);
+    m_finalEdit->setPlainText(content.finalSentence);
+
     m_starsEditor->setStars(parseStars(loadRawStars()));
-    m_editor->document()->setModified(false);
+
+    m_textFormModified = false;
     m_hasUnsavedChanges = false;
+}
+
+CrawlContent MainWindow::collectContent() const {
+    CrawlContent content;
+    content.intro         = m_introEdit->toPlainText().trimmed();
+    content.logo          = m_logoEdit->toPlainText().trimmed();
+    content.title         = m_titleEdit->text().trimmed();
+    content.subtitle      = m_subtitleEdit->text().trimmed();
+    content.bodyLines     = m_bodyEdit->toPlainText().split(QLatin1Char('\n'));
+    content.planetHeader  = m_headerEdit->toPlainText().trimmed();
+    content.finalSentence = m_finalEdit->toPlainText().trimmed();
+    return content;
 }
 
 void MainWindow::updateStatusLabels() {
@@ -448,7 +553,7 @@ void MainWindow::ensureCrawlWindow() {
 
 bool MainWindow::saveEditorContents() {
     QString textSavedPath;
-    if (!saveRawText(m_editor->toPlainText(), &textSavedPath)) {
+    if (!saveRawText(serializeContent(collectContent()), &textSavedPath)) {
         QMessageBox::warning(
             this,
             QStringLiteral("Save failed"),
@@ -464,7 +569,7 @@ bool MainWindow::saveEditorContents() {
             QStringLiteral("The star configuration file could not be saved. The embedded Qt resource is read-only at runtime."));
         return false;
     }
-    m_editor->document()->setModified(false);
+    m_textFormModified = false;
     m_starsEditor->setModified(false);
     m_hasUnsavedChanges = false;
     updateStatusLabels();
@@ -504,7 +609,7 @@ bool MainWindow::leaveEditor() {
 
 void MainWindow::enterShowMode() {
     ensureCrawlWindow();
-    m_crawlWindow->setContent(parseContent(m_editor->toPlainText()));
+    m_crawlWindow->setContent(collectContent());
     m_crawlWindow->setGoalStars(m_starsEditor->stars());
     m_crawlWindow->setShowMode(
         m_startupMode == StartupMode::Live

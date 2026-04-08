@@ -31,6 +31,8 @@ add_executable(StarWarsText
         src/StarMapWidget.cpp
         src/StarsEditorWidget.h
         src/StarsEditorWidget.cpp
+        src/LineNumberTextEdit.h
+        src/LineNumberTextEdit.cpp
         resources/resources.qrc
 )
 target_link_libraries(StarWarsText

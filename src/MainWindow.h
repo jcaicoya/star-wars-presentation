@@ -4,11 +4,13 @@
 #include <QMainWindow>
 
 class QLabel;
+class QLineEdit;
 class QPlainTextEdit;
 class QStackedWidget;
 class QToolButton;
 class CrawlWindow;
 class StarsEditorWidget;
+struct CrawlContent;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -32,8 +34,9 @@ private:
     void    buildStarsEditorPage();
     void    buildLauncherPage();
     void    configureAction(QAction *action, const QString &text, const QKeySequence &shortcut);
-    void    loadIntoEditor();
-    void    updateStatusLabels();
+    void         loadIntoEditor();
+    CrawlContent collectContent() const;
+    void         updateStatusLabels();
     void    configureCrawlWindow(CrawlWindow *window);
     void    ensureCrawlWindow();
     bool    saveEditorContents();
@@ -47,7 +50,13 @@ private:
     QWidget        *m_launcherPage       = nullptr;
     QWidget        *m_textEditorPage     = nullptr;
     QWidget        *m_starsEditorPage    = nullptr;
-    QPlainTextEdit *m_editor             = nullptr;
+    QPlainTextEdit *m_introEdit          = nullptr;
+    QPlainTextEdit *m_logoEdit           = nullptr;
+    QLineEdit      *m_titleEdit          = nullptr;
+    QLineEdit      *m_subtitleEdit       = nullptr;
+    QPlainTextEdit *m_bodyEdit           = nullptr;
+    QPlainTextEdit *m_headerEdit         = nullptr;
+    QPlainTextEdit *m_finalEdit          = nullptr;
     StarsEditorWidget *m_starsEditor     = nullptr;
     QLabel         *m_textStatusLabel    = nullptr;
     QLabel         *m_starsStatusLabel   = nullptr;
@@ -71,6 +80,7 @@ private:
     QAction        *m_particlesAction = nullptr;
     CrawlWindow    *m_crawlWindow     = nullptr;
     bool            m_hasUnsavedChanges = false;
+    bool            m_textFormModified  = false;
     StartupMode     m_startupMode       = StartupMode::Live;
     bool            m_startFullscreen   = false;
     int             m_hyperspaceMode    = 0; // 0 = Tunnel, 1 = Particles

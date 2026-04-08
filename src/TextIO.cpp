@@ -141,6 +141,18 @@ CrawlContent parseContent(const QString &rawText) {
     return content;
 }
 
+QString serializeContent(const CrawlContent &content) {
+    QString text;
+    text += QStringLiteral("[intro]\n") + content.intro + QStringLiteral("\n\n");
+    text += QStringLiteral("[logo]\n") + content.logo + QStringLiteral("\n\n");
+    text += QStringLiteral("[title]\n") + content.title + QStringLiteral("\n\n");
+    text += QStringLiteral("[subtitle]\n") + content.subtitle + QStringLiteral("\n\n");
+    text += QStringLiteral("[body]\n") + content.bodyLines.join(QLatin1Char('\n')) + QStringLiteral("\n\n");
+    text += QStringLiteral("[planetheader]\n") + content.planetHeader + QStringLiteral("\n\n");
+    text += QStringLiteral("[finalsentence]\n") + content.finalSentence + QStringLiteral("\n");
+    return text;
+}
+
 std::vector<StarDefinition> parseStars(const QString &rawText) {
     std::vector<StarDefinition> stars;
 
