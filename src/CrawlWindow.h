@@ -8,6 +8,9 @@
 #include <QWidget>
 #include <vector>
 
+class QAudioOutput;
+class QMediaPlayer;
+
 #include "CrawlContent.h"
 
 class QPainter;
@@ -201,4 +204,20 @@ private:
     // Outro phase
     int   m_outroTick = 0;
     int   m_outroFinalTick = -1; // <0 = recap, >=0 = final message
+
+    // ── Audio ────────────────────────────────────────────────────────────────
+    void setupAudio();
+    void startEngine();
+    void stopEngine();
+    void stopAllSounds();
+
+    QMediaPlayer *m_enginePlayer      = nullptr;
+    QAudioOutput *m_engineAudio       = nullptr;
+    QMediaPlayer *m_hyperAccelPlayer  = nullptr;
+    QAudioOutput *m_hyperAccelAudio   = nullptr;
+    QMediaPlayer *m_hyperDecelPlayer  = nullptr;
+    QAudioOutput *m_hyperDecelAudio   = nullptr;
+    QMediaPlayer *m_outroPlayer       = nullptr;
+    QAudioOutput *m_outroAudio        = nullptr;
+    bool          m_enginePlaying     = false;
 };

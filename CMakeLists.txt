@@ -15,6 +15,7 @@ endif ()
 find_package(Qt6 COMPONENTS
         Core
         Gui
+        Multimedia
         Widgets
         REQUIRED)
 
@@ -38,6 +39,7 @@ add_executable(StarWarsText
 target_link_libraries(StarWarsText
         Qt::Core
         Qt::Gui
+        Qt::Multimedia
         Qt::Widgets
 )
 
@@ -62,7 +64,7 @@ if (WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
                 "${QT_INSTALL_PATH}/plugins/platforms/qwindows${DEBUG_SUFFIX}.dll"
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/platforms/")
     endif ()
-    foreach (QT_LIB Core Gui Widgets)
+    foreach (QT_LIB Core Gui Multimedia Widgets)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy
                 "${QT_INSTALL_PATH}/bin/Qt6${QT_LIB}${DEBUG_SUFFIX}.dll"

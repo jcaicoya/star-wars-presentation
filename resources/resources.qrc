@@ -2,5 +2,9 @@
     <qresource prefix="/">
         <file>text.txt</file>
         <file>stars.json</file>
+        <file>sfx_engine.wav</file>
+        <file>sfx_hyperspace_accel.wav</file>
+        <file>sfx_hyperspace_decel.wav</file>
+        <file>sfx_outro.wav</file>
     </qresource>
 </RCC>

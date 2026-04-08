@@ -12,25 +12,24 @@ Episode AI
 A NEW PROMPT
 
 [body]
-It is a period of rapid prototyping.
+It is a time of rapid prototyping.
 
 Rebel engineers, striking from
-hidden branches, have secured
-their first victory against vague
+hidden branches, have won their
+first victory against vague
 requirements and unstable demos.
 
 During the battle, the team stole
 enough GPU time to prepare a talk
 on models, agents, automation,
-and systems that may or may not
-have worked five minutes before.
+and the growing shadow cast by
+Darth Claude himself.
 
-Pursued by deadlines, the speakers
-race toward launch, determined
-to deliver a presentation worthy
-of inspiring colleagues across
-the entire company...
-
+Now, guided by three bright stars,
+the speakers race toward launch,
+determined to share a few ideas
+worthy of inspiring colleagues
+across the entire company...
 
 
 [planetheader]

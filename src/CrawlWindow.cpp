@@ -1,8 +1,10 @@
 #include "CrawlWindow.h"
 #include "TextIO.h"
 
+#include <QAudioOutput>
 #include <QCloseEvent>
 #include <QFontMetrics>
+#include <QMediaPlayer>
 #include <QKeyEvent>
 #include <QLinearGradient>
 #include <QRadialGradient>
@@ -105,6 +107,53 @@ CrawlWindow::CrawlWindow(QWidget *parent)
             rebuildLines();
     });
 
+    setupAudio();
+}
+
+void CrawlWindow::setupAudio() {
+    auto makePlayer = [this](QMediaPlayer *&player, QAudioOutput *&audio,
+                             const QString &resource, qreal volume) {
+        audio = new QAudioOutput(this);
+        audio->setVolume(static_cast<float>(volume));
+        player = new QMediaPlayer(this);
+        player->setAudioOutput(audio);
+        player->setSource(QUrl(QStringLiteral("qrc:/") + resource));
+    };
+
+    makePlayer(m_enginePlayer, m_engineAudio,
+               QStringLiteral("sfx_engine.wav"), 0.5);
+    m_enginePlayer->setLoops(QMediaPlayer::Infinite);
+
+    makePlayer(m_hyperAccelPlayer, m_hyperAccelAudio,
+               QStringLiteral("sfx_hyperspace_accel.wav"), 0.7);
+
+    makePlayer(m_hyperDecelPlayer, m_hyperDecelAudio,
+               QStringLiteral("sfx_hyperspace_decel.wav"), 0.7);
+
+    makePlayer(m_outroPlayer, m_outroAudio,
+               QStringLiteral("sfx_outro.wav"), 0.6);
+}
+
+void CrawlWindow::startEngine() {
+    if (m_enginePlaying)
+        return;
+    m_enginePlaying = true;
+    m_enginePlayer->setPosition(0);
+    m_enginePlayer->play();
+}
+
+void CrawlWindow::stopEngine() {
+    if (!m_enginePlaying)
+        return;
+    m_enginePlaying = false;
+    m_enginePlayer->stop();
+}
+
+void CrawlWindow::stopAllSounds() {
+    stopEngine();
+    m_hyperAccelPlayer->stop();
+    m_hyperDecelPlayer->stop();
+    m_outroPlayer->stop();
 }
 
 // ── Public interface ──────────────────────────────────────────────────────────
@@ -257,6 +306,7 @@ void CrawlWindow::keyReleaseEvent(QKeyEvent *event) {
 }
 
 void CrawlWindow::closeEvent(QCloseEvent *event) {
+    stopAllSounds();
     m_animationTimer.stop();
     emit closed();
     QWidget::closeEvent(event);
@@ -265,6 +315,7 @@ void CrawlWindow::closeEvent(QCloseEvent *event) {
 // ── Phase management ──────────────────────────────────────────────────────────
 
 void CrawlWindow::transitionTo(Phase phase) {
+    stopAllSounds();
     m_phase = phase;
     switch (phase) {
     case Phase::Intro:
@@ -292,10 +343,14 @@ void CrawlWindow::transitionTo(Phase phase) {
     case Phase::Hyperspace:
         m_hyperspaceTick = 0;
         m_hyperParticles.clear();
+        m_hyperAccelPlayer->setPosition(0);
+        m_hyperAccelPlayer->play();
         break;
     case Phase::Outro:
         m_outroTick = 0;
         m_outroFinalTick = -1;
+        m_outroPlayer->setPosition(0);
+        m_outroPlayer->play();
         break;
     }
 }
@@ -417,6 +472,7 @@ void CrawlWindow::tickSpaceflight() {
         }
 
         if (m_liveFlight.legActive) {
+            startEngine();
             ++m_liveFlight.legTick;
             const qreal t = clamp01(static_cast<qreal>(m_liveFlight.legTick) / std::max(1, m_liveFlight.legDuration));
             const qreal eased = easeInOutSine(t);
@@ -430,6 +486,7 @@ void CrawlWindow::tickSpaceflight() {
                 m_liveFlight.legActive = false;
                 m_liveFlight.targetReached = true;
                 m_liveFlight.legTick = 0;
+                stopEngine();
             }
         }
 
@@ -485,6 +542,11 @@ static constexpr int kHyperspaceSettleTicks = 30;
 
 void CrawlWindow::tickHyperspace() {
     ++m_hyperspaceTick;
+
+    if (m_hyperspaceTick == kHyperspaceJumpEnd + 1) {
+        m_hyperDecelPlayer->setPosition(0);
+        m_hyperDecelPlayer->play();
+    }
 
     const int totalTicks = kHyperspaceEnd + kHyperspaceSettleTicks;
     if (m_hyperspaceTick >= totalTicks) {
@@ -1107,7 +1169,9 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     }
 
     // ── Star recap sub-phase ─────────────────────────────────────────────
-    const qreal reveal = clamp01(static_cast<qreal>(m_outroTick) / 90.0);
+    constexpr int kStarDelay = 100;  // stars start after header has settled
+    const int starTick = std::max(0, m_outroTick - kStarDelay);
+    const qreal reveal = clamp01(static_cast<qreal>(starTick) / 90.0);
     const qreal logoAlpha = easeOutCubic(reveal);
 
     // Build per-star colors from goal data (fall back to white if fewer than 4)
@@ -1130,8 +1194,8 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     const qreal glowRadius = nodeRadius * 2.5;
 
     // ── Header text ──────────────────────────────────────────────────────
-    if (!m_content.planetHeader.isEmpty() && logoAlpha > 0.0) {
-        const qreal headerAlpha = easeOutCubic(clamp01(static_cast<qreal>(m_outroTick) / 60.0));
+    const qreal headerAlpha = easeOutCubic(clamp01(static_cast<qreal>(m_outroTick) / 60.0));
+    if (!m_content.planetHeader.isEmpty() && headerAlpha > 0.0) {
         const int headerSize = std::max(18, static_cast<int>(h * 0.035));
         QFont headerFont(QStringLiteral("Segoe UI"), headerSize, QFont::Bold);
         painter.setFont(headerFont);
@@ -1231,9 +1295,9 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     }
 
     // ── Star labels ──────────────────────────────────────────────────────
-    constexpr int kTextRevealTick = 90;
-    if (m_outroTick > kTextRevealTick) {
-        const qreal textOpacity = easeOutCubic(clamp01(static_cast<qreal>(m_outroTick - kTextRevealTick) / 60.0));
+    constexpr int kTextRevealTick = 90;  // relative to star animation start
+    if (starTick > kTextRevealTick) {
+        const qreal textOpacity = easeOutCubic(clamp01(static_cast<qreal>(starTick - kTextRevealTick) / 60.0));
         painter.setOpacity(textOpacity);
 
         QFont bodyFont(QStringLiteral("Segoe UI"), std::max<int>(16, static_cast<int>(h * 0.025)), QFont::DemiBold);
