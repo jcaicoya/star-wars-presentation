@@ -15,7 +15,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numeric>
 
 namespace {
 
@@ -70,11 +69,6 @@ qreal easeOutCubic(const qreal t) {
 qreal easeOutQuad(const qreal t) {
     const qreal x = clamp01(t);
     return 1.0 - (1.0 - x) * (1.0 - x);
-}
-
-qreal easeInQuad(const qreal t) {
-    const qreal x = clamp01(t);
-    return x * x;
 }
 
 } // namespace
@@ -1123,11 +1117,9 @@ void CrawlWindow::paintHUD(QPainter &painter) {
 
     painter.setFont(hudFont);
     painter.setPen(QColor(180, 180, 180));
-    QString hint = QStringLiteral("Esc to editor   F11 fullscreen   Space \u2192 next scene");
-    if (m_phase == Phase::Spaceflight && m_showMode == ShowMode::Live && m_liveFlight.targetReached) {
-        hint = QStringLiteral("Esc to editor   F11 fullscreen   Space \u2192 next star");
-    } else if (m_phase == Phase::Spaceflight) {
-        hint = QStringLiteral("Arrows move   W forward   S backward   Esc editor   F11 fullscreen");
+    QString hint = QStringLiteral("Esc to editor   Space \u2192 next scene");
+    if (m_phase == Phase::Spaceflight) {
+        hint = QStringLiteral("Arrows move   W forward   S backward   Esc editor");
     }
     painter.drawText(hudRect, Qt::AlignLeft | Qt::AlignVCenter, hint);
     painter.drawText(hudRect, Qt::AlignRight | Qt::AlignVCenter, timeStr);

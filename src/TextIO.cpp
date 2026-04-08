@@ -71,7 +71,6 @@ static const QString kTextRelativePath  = QStringLiteral("resources/text.txt");
 static const QString kStarsRelativePath = QStringLiteral("resources/stars.json");
 
 QString editableTextPath()  { return editablePath(kTextRelativePath); }
-QString editableStarsPath() { return editablePath(kStarsRelativePath); }
 QString loadRawText()       { return loadRaw(kTextRelativePath, resourceTextPath()); }
 QString loadRawStars()      { return loadRaw(kStarsRelativePath, resourceStarsPath()); }
 

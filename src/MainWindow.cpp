@@ -143,12 +143,6 @@ MainWindow::MainWindow() {
         saveEditorContents();
     });
 
-    auto *fullscreenShortcut = new QShortcut(QKeySequence(Qt::Key_F11), this);
-    connect(fullscreenShortcut, &QShortcut::activated, this, [this]() {
-        if (m_crawlWindow != nullptr && m_crawlWindow->isVisible())
-            m_crawlWindow->setWindowState(m_crawlWindow->windowState() ^ Qt::WindowFullScreen);
-    });
-
     loadIntoEditor();
     applyStartupDefaults();
     setStatusForCurrentPath(QStringLiteral("Loaded"));

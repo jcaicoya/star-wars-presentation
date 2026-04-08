@@ -7,7 +7,6 @@
 QString resourceTextPath();
 QString editableTextPath();
 QString resourceStarsPath();
-QString editableStarsPath();
 QString loadRawText();
 QString loadRawStars();
 bool    saveRawText(const QString &text, QString *savedPath = nullptr);
