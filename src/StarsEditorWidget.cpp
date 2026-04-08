@@ -2,6 +2,7 @@
 #include "StarMapWidget.h"
 
 #include <QColorDialog>
+#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -21,10 +22,12 @@ const QString kEditorStyle = QStringLiteral(
     "QListWidget { background: #161c24; border: 1px solid #2c3642; }"
     "QListWidget::item { padding: 6px 10px; }"
     "QListWidget::item:selected { background: #24384d; color: #f4fbff; }"
-    "QLineEdit, QDoubleSpinBox {"
+    "QLineEdit, QDoubleSpinBox, QComboBox {"
     "  background: #1a2230; border: 1px solid #2c3642; border-radius: 6px;"
     "  padding: 6px 10px; color: #e0e8f0;"
     "}"
+    "QComboBox::drop-down { border: none; }"
+    "QComboBox QAbstractItemView { background: #1a2230; color: #e0e8f0; selection-background-color: #24384d; }"
     "QGroupBox { border: 1px solid #2c3642; border-radius: 8px; margin-top: 12px; padding-top: 18px; }"
     "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #8899aa; }"
     "QToolButton {"
@@ -142,6 +145,11 @@ void StarsEditorWidget::buildPropertyForm(QWidget *parent) {
     m_nameEdit->setPlaceholderText(QStringLiteral("Star message text"));
     form->addRow(QStringLiteral("Text"), m_nameEdit);
 
+    m_typeCombo = new QComboBox(group);
+    m_typeCombo->addItem(QStringLiteral("Star"));
+    m_typeCombo->addItem(QStringLiteral("Planet"));
+    form->addRow(QStringLiteral("Type"), m_typeCombo);
+
     m_coreColorBtn = new QPushButton(group);
     m_coreColorBtn->setFixedHeight(28);
     form->addRow(QStringLiteral("Core color"), m_coreColorBtn);
@@ -187,6 +195,7 @@ void StarsEditorWidget::buildPropertyForm(QWidget *parent) {
     connect(m_posXSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), this, [this]() { applyPropertyToStar(); });
     connect(m_posYSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), this, [this]() { applyPropertyToStar(); });
     connect(m_posZSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), this, [this]() { applyPropertyToStar(); });
+    connect(m_typeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() { applyPropertyToStar(); });
     connect(m_coreColorBtn, &QPushButton::clicked, this, [this]() { onColorButtonClicked(true); });
     connect(m_glowColorBtn, &QPushButton::clicked, this, [this]() { onColorButtonClicked(false); });
 }
@@ -233,6 +242,7 @@ void StarsEditorWidget::updatePropertyForm() {
 
     const StarDefinition &star = m_stars[m_selectedIndex];
     m_nameEdit->setText(star.text);
+    m_typeCombo->setCurrentIndex(star.isPlanet ? 1 : 0);
     updateColorButton(m_coreColorBtn, star.coreColor);
     updateColorButton(m_glowColorBtn, star.glowColor);
     m_radiusSpin->setValue(star.radius);
@@ -249,6 +259,7 @@ void StarsEditorWidget::applyPropertyToStar() {
 
     StarDefinition &star = m_stars[m_selectedIndex];
     star.text = m_nameEdit->text();
+    star.isPlanet = m_typeCombo->currentIndex() == 1;
     star.radius = m_radiusSpin->value();
     star.position = QVector3D(
         static_cast<float>(kSpaceMinX + (m_posXSpin->value() / 100.0) * (kSpaceMaxX - kSpaceMinX)),

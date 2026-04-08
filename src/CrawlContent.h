@@ -30,4 +30,5 @@ struct StarDefinition {
     QColor    coreColor;
     QColor    glowColor;
     qreal     radius = 7.0;
+    bool      isPlanet = false;
 };

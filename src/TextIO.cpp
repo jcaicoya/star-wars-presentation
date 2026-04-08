@@ -181,6 +181,7 @@ std::vector<StarDefinition> parseStars(const QString &rawText) {
         star.coreColor = QColor(colors.value(QStringLiteral("core")).toString(QStringLiteral("#ffffff")));
         star.glowColor = QColor(colors.value(QStringLiteral("glow")).toString(QStringLiteral("#99ccff")));
         star.radius = object.value(QStringLiteral("radius")).toDouble(7.0);
+        star.isPlanet = object.value(QStringLiteral("type")).toString(QStringLiteral("star")) == QStringLiteral("planet");
 
         if (!star.coreColor.isValid())
             star.coreColor = QColor(255, 255, 255);
@@ -210,6 +211,7 @@ QString serializeStars(const std::vector<StarDefinition> &stars) {
         object[QStringLiteral("position")] = position;
         object[QStringLiteral("colors")]   = colors;
         object[QStringLiteral("radius")]   = star.radius;
+        object[QStringLiteral("type")]     = star.isPlanet ? QStringLiteral("planet") : QStringLiteral("star");
 
         starArray.append(object);
     }

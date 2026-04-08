@@ -5,6 +5,7 @@
 
 #include "CrawlContent.h"
 
+class QComboBox;
 class QDoubleSpinBox;
 class QLineEdit;
 class QListWidget;
@@ -49,6 +50,7 @@ private:
     QLineEdit      *m_nameEdit     = nullptr;
     QPushButton    *m_coreColorBtn = nullptr;
     QPushButton    *m_glowColorBtn = nullptr;
+    QComboBox      *m_typeCombo    = nullptr;
     QDoubleSpinBox *m_radiusSpin   = nullptr;
     QDoubleSpinBox *m_posXSpin     = nullptr;
     QDoubleSpinBox *m_posYSpin     = nullptr;

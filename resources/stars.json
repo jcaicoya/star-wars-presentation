@@ -11,7 +11,8 @@
                 "z": 0
             },
             "radius": 5,
-            "text": "Move fast; don't run"
+            "text": "Move fast; don't run",
+            "type": "star"
         },
         {
             "colors": {
@@ -24,7 +25,8 @@
                 "z": 778.7999877929688
             },
             "radius": 5.2,
-            "text": "Create more than before"
+            "text": "Create more than before",
+            "type": "star"
         },
         {
             "colors": {
@@ -37,7 +39,8 @@
                 "z": 1557.5999755859375
             },
             "radius": 5.4,
-            "text": "The purpose is people"
+            "text": "The purpose is people",
+            "type": "star"
         },
         {
             "colors": {
@@ -50,7 +53,8 @@
                 "z": 2360
             },
             "radius": 5.6,
-            "text": ""
+            "text": "",
+            "type": "planet"
         }
     ]
 }

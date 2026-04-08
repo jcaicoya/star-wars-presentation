@@ -758,9 +758,8 @@ void CrawlWindow::paintSpaceScene(QPainter &painter, const bool showGoalText, co
         painter.setBrush(sphere);
         painter.drawEllipse(point, radius, radius);
 
-        // Saturn ring on the last star
-        const bool isLast = (index + 1 == static_cast<int>(m_goalStars.size()));
-        if (isLast && radius > 2.0) {
+        // Saturn ring on planet-type stars
+        if (goal.isPlanet && radius > 2.0) {
             const qreal ringOuterX = radius * 2.2;
             const qreal ringOuterY = radius * 0.6;
             const qreal ringInnerX = radius * 1.4;
@@ -1091,14 +1090,15 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     const qreal reveal = clamp01(static_cast<qreal>(m_outroTick) / 90.0);
     const qreal logoAlpha = easeOutCubic(reveal);
 
-    QColor orangeCore(255, 255, 255, static_cast<int>(255 * logoAlpha));
-    QColor orangeGlow(231, 122, 35, static_cast<int>(255 * logoAlpha));
-
-    QColor whiteCore(255, 255, 255, static_cast<int>(255 * logoAlpha));
-    QColor whiteGlow(200, 200, 200, static_cast<int>(200 * logoAlpha));
-
-    QColor cyanCore(255, 255, 255, static_cast<int>(255 * logoAlpha));
-    QColor cyanGlow(16, 163, 202, static_cast<int>(255 * logoAlpha));
+    // Build per-star colors from goal data (fall back to white if fewer than 4)
+    auto starCore = [&](int i) -> QColor {
+        const QColor c = (i < static_cast<int>(m_goalStars.size())) ? m_goalStars[i].coreColor : QColor(255, 255, 255);
+        return QColor(c.red(), c.green(), c.blue(), static_cast<int>(255 * logoAlpha));
+    };
+    auto starGlow = [&](int i) -> QColor {
+        const QColor c = (i < static_cast<int>(m_goalStars.size())) ? m_goalStars[i].glowColor : QColor(200, 200, 200);
+        return QColor(c.red(), c.green(), c.blue(), static_cast<int>(255 * logoAlpha));
+    };
 
     QPointF node1(w * 0.30, h * 0.72);
     QPointF node2(w * 0.43, h * 0.45);
@@ -1124,22 +1124,22 @@ void CrawlWindow::paintOutro(QPainter &painter) {
     if (logoAlpha > 0.0) {
         qreal p1 = clamp01(logoAlpha * 3.0);
         QLinearGradient grad1(node1, node2);
-        grad1.setColorAt(0, orangeGlow);
-        grad1.setColorAt(1, whiteGlow);
+        grad1.setColorAt(0, starGlow(0));
+        grad1.setColorAt(1, starGlow(1));
         painter.setPen(QPen(QBrush(grad1), pathWidth, Qt::SolidLine, Qt::RoundCap));
         painter.drawLine(node1, node1 + (node2 - node1) * p1);
 
         if (logoAlpha > 0.33) {
             qreal p2 = clamp01((logoAlpha - 0.33) * 3.0);
-            painter.setPen(QPen(whiteGlow, pathWidth, Qt::SolidLine, Qt::RoundCap));
+            painter.setPen(QPen(starGlow(1), pathWidth, Qt::SolidLine, Qt::RoundCap));
             painter.drawLine(node2, node2 + (node3 - node2) * p2);
         }
 
         if (logoAlpha > 0.66) {
             qreal p3 = clamp01((logoAlpha - 0.66) * 3.0);
             QLinearGradient grad2(node3, node4);
-            grad2.setColorAt(0, whiteGlow);
-            grad2.setColorAt(1, cyanGlow);
+            grad2.setColorAt(0, starGlow(2));
+            grad2.setColorAt(1, starGlow(3));
             painter.setPen(QPen(QBrush(grad2), pathWidth, Qt::SolidLine, Qt::RoundCap));
             painter.drawLine(node3, node3 + (node4 - node3) * p3);
         }
@@ -1203,10 +1203,11 @@ void CrawlWindow::paintOutro(QPainter &painter) {
             }
         };
 
-        drawStar(node1, orangeCore, orangeGlow, false);
-        drawStar(node2, whiteCore, whiteGlow, false);
-        drawStar(node3, whiteCore, whiteGlow, false);
-        drawStar(node4, cyanCore, cyanGlow, true);
+        const QPointF nodes[] = {node1, node2, node3, node4};
+        for (int i = 0; i < 4; ++i) {
+            const bool planet = (i < static_cast<int>(m_goalStars.size())) && m_goalStars[i].isPlanet;
+            drawStar(nodes[i], starCore(i), starGlow(i), planet);
+        }
     }
 
     // ── Star labels ──────────────────────────────────────────────────────
