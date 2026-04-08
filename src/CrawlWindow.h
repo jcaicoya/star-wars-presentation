@@ -55,7 +55,7 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 
 private:
-    enum class LineAlignment { Center, Left };
+    enum class LineAlignment { Center, Left, Justified };
 
     struct RenderLine {
         QString       text;

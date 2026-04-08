@@ -1339,11 +1339,17 @@ void CrawlWindow::rebuildLines() {
         appendLine(m_content.subtitle, subtitleFont, LineAlignment::Center, viewport.height() * 0.018);
 
     const int lineLimit = effectiveBodyLineLimit(m_content.bodyLines);
-    for (const QString &line : m_content.bodyLines) {
-        if (line.trimmed().isEmpty())
+    const int bodyCount = static_cast<int>(m_content.bodyLines.size());
+    for (int i = 0; i < bodyCount; ++i) {
+        const QString &line = m_content.bodyLines[i];
+        if (line.trimmed().isEmpty()) {
             appendLine(QString(), bodyFont, LineAlignment::Left, viewport.height() * 0.004);
-        else
-            appendLine(line.left(lineLimit), bodyFont, LineAlignment::Left, viewport.height() * 0.0015);
+            continue;
+        }
+        const bool isLastInParagraph =
+            (i + 1 >= bodyCount) || m_content.bodyLines[i + 1].trimmed().isEmpty();
+        const LineAlignment align = isLastInParagraph ? LineAlignment::Left : LineAlignment::Justified;
+        appendLine(line.left(lineLimit), bodyFont, align, viewport.height() * 0.0015);
     }
 
     renderCrawlImage();
@@ -1385,21 +1391,69 @@ void CrawlWindow::renderCrawlImage() {
     imagePainter.setRenderHint(QPainter::Antialiasing, true);
     imagePainter.setRenderHint(QPainter::TextAntialiasing, true);
 
+    // Draws a single line of text with justified word spacing.
+    // Words are spread across columnWidth; falls back to left-aligned if
+    // the natural width is less than 60% of the column or there are fewer than 2 words.
+    auto drawJustified = [&](QPainter &p, const QString &text, qreal x, qreal y,
+                             qreal columnWidth, qreal lineHeight) {
+        const QFontMetricsF fm(p.font());
+        const QStringList words = text.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        if (words.size() < 2) {
+            p.drawText(QRectF(x, y, columnWidth, lineHeight),
+                       Qt::AlignLeft | Qt::AlignVCenter, text);
+            return;
+        }
+
+        qreal totalWordWidth = 0.0;
+        for (const QString &w : words)
+            totalWordWidth += fm.horizontalAdvance(w);
+
+        if (totalWordWidth < columnWidth * 0.6) {
+            p.drawText(QRectF(x, y, columnWidth, lineHeight),
+                       Qt::AlignLeft | Qt::AlignVCenter, text);
+            return;
+        }
+
+        const qreal extraSpace = (columnWidth - totalWordWidth) / (words.size() - 1);
+        const qreal baseline = y + (lineHeight + fm.ascent() - fm.descent()) * 0.5;
+        qreal cx = x;
+        for (const QString &w : words) {
+            p.drawText(QPointF(cx, baseline), w);
+            cx += fm.horizontalAdvance(w) + extraSpace;
+        }
+    };
+
     qreal y = entryPadding;
     for (const RenderLine &line : m_renderLines) {
         imagePainter.setFont(line.font);
         const QRectF lineRect(40.0, y, imageWidth - 80.0, line.height);
-        const Qt::Alignment hAlign =
-            (line.alignment == LineAlignment::Center) ? Qt::AlignHCenter : Qt::AlignLeft;
 
-        // Soft glow pass
-        imagePainter.setPen(QColor(255, 215, 90, 48));
-        for (const QPointF &d : {QPointF(-1, 0), QPointF(1, 0), QPointF(0, -1), QPointF(0, 1)})
-            imagePainter.drawText(lineRect.translated(d), hAlign | Qt::AlignVCenter, line.text);
+        if (line.alignment == LineAlignment::Justified) {
+            // Soft glow pass
+            imagePainter.setPen(QColor(255, 215, 90, 48));
+            for (const QPointF &d : {QPointF(-1, 0), QPointF(1, 0), QPointF(0, -1), QPointF(0, 1)})
+                drawJustified(imagePainter, line.text,
+                              lineRect.x() + d.x(), lineRect.y() + d.y(),
+                              lineRect.width(), lineRect.height());
 
-        // Main text
-        imagePainter.setPen(QColor(255, 228, 110));
-        imagePainter.drawText(lineRect, hAlign | Qt::AlignVCenter, line.text);
+            // Main text
+            imagePainter.setPen(QColor(255, 228, 110));
+            drawJustified(imagePainter, line.text,
+                          lineRect.x(), lineRect.y(),
+                          lineRect.width(), lineRect.height());
+        } else {
+            const Qt::Alignment hAlign =
+                (line.alignment == LineAlignment::Center) ? Qt::AlignHCenter : Qt::AlignLeft;
+
+            // Soft glow pass
+            imagePainter.setPen(QColor(255, 215, 90, 48));
+            for (const QPointF &d : {QPointF(-1, 0), QPointF(1, 0), QPointF(0, -1), QPointF(0, 1)})
+                imagePainter.drawText(lineRect.translated(d), hAlign | Qt::AlignVCenter, line.text);
+
+            // Main text
+            imagePainter.setPen(QColor(255, 228, 110));
+            imagePainter.drawText(lineRect, hAlign | Qt::AlignVCenter, line.text);
+        }
 
         y += line.advance + line.spacingAfter;
     }
