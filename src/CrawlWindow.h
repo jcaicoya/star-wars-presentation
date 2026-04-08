@@ -26,8 +26,8 @@ public:
         Logo,
         Crawl,
         Spaceflight,
-        ThreeStars,
-        Ending
+        Hyperspace,
+        Outro
     };
 
     enum class HyperspaceMode {
@@ -56,14 +56,6 @@ protected:
 
 private:
     enum class LineAlignment { Center, Left };
-    enum class ThreeStarsStage {
-        Entry,
-        Acquire,
-        Travel,
-        Reveal,
-        Hold,
-        Transition
-    };
 
     struct RenderLine {
         QString       text;
@@ -123,7 +115,8 @@ private:
     void tickLogo();
     void tickCrawl();
     void tickSpaceflight();
-    void tickThreeStars();
+    void tickHyperspace();
+    void tickOutro();
 
     // Per-phase paint (draws current phase on top of the starfield)
     void paintStarfield(QPainter &painter);
@@ -131,7 +124,8 @@ private:
     void paintLogo(QPainter &painter);
     void paintCrawl(QPainter &painter);
     void paintSpaceflight(QPainter &painter);
-    void paintThreeStars(QPainter &painter);
+    void paintHyperspace(QPainter &painter);
+    void paintOutro(QPainter &painter);
     void paintHUD(QPainter &painter);
 
     // ── Crawl-phase helpers ──────────────────────────────────────────────────
@@ -148,17 +142,6 @@ private:
     QPointF projectSpacePoint(const QVector3D &worldPoint, qreal *scale = nullptr) const;
     int     activeGoalStarIndex() const;
 
-    // ── Three-stars helpers ──────────────────────────────────────────────────
-    QPointF targetPointForMessage(int index) const;
-    QPointF starfieldFocusPoint() const;
-    QPointF threeStarsCameraOffset() const;
-    QPointF adjustedStarPoint(int index) const;
-    QPointF acquisitionShiftDirection() const;
-    QRectF  messageRect() const;
-    qreal   threeStarsTravelSpeed() const;
-    void    tickEnding();
-    void    paintEnding(QPainter &painter);
-
     // ── Persistent data ──────────────────────────────────────────────────────
     CrawlContent      m_content;
     std::vector<Star> m_stars;
@@ -174,10 +157,10 @@ private:
     // ── Phase state ──────────────────────────────────────────────────────────
     Phase m_phase = Phase::Intro;
 
-    // Intro phase  (reserved for implementation)
+    // Intro phase
     int m_introTick = 0;
 
-    // Logo phase   (reserved for implementation)
+    // Logo phase
     int m_logoTick = 0;
 
     // Crawl phase
@@ -185,9 +168,9 @@ private:
     QImage                  m_crawlImage;
     qreal                   m_sourceWindowHeight  = 0.0;
     qreal                   m_crawlOffset         = 0.0;
-    qreal                   m_crawlTriggerOffset  = 0.0; // offset at which outro is triggered
-    qreal                   m_cameraTilt          = 0.0; // 0 = normal, 1 = fully tilted down
-    qreal                   m_starDriftY          = 0.0; // cumulative upward star drift (camera pan)
+    qreal                   m_crawlTriggerOffset  = 0.0;
+    qreal                   m_cameraTilt          = 0.0;
+    qreal                   m_starDriftY          = 0.0;
 
     // Spaceflight phase
     QVector3D       m_shipPosition;
@@ -198,32 +181,22 @@ private:
     InputState      m_input;
     LiveFlightState m_liveFlight;
 
-    // Three-stars phase
-    ThreeStarsStage m_threeStarsStage      = ThreeStarsStage::Entry;
-    int             m_threeStarsTick       = 0;
-    int             m_currentMessageIndex  = 0;
-    int             m_previousMessageIndex = 0;
-    qreal           m_threeStarsEntryFade  = 0.0;
-    qreal           m_threeStarsTravel     = 0.0;
-    qreal           m_threeStarsMessageOpacity = 0.0;
-    qreal           m_threeStarsMessageScale   = 0.97;
-
-    // Hyperspace / Ending finale
+    // Hyperspace phase
     struct HyperParticle {
-        qreal dirX;        // cos(angle) — precomputed direction
-        qreal dirY;        // sin(angle) — precomputed direction
-        qreal distance;    // normalised distance from center (0 = center, 1 = edge)
-        qreal speed;       // distance increment per tick
-        qreal radius;      // dot radius in pixels
-        qreal alpha;       // 0–1
+        qreal dirX;
+        qreal dirY;
+        qreal distance;
+        qreal speed;
+        qreal radius;
+        qreal alpha;
         QColor color;
     };
 
     HyperspaceMode m_hyperspaceMode = HyperspaceMode::Tunnel;
-    int   m_endingTick           = 0;
-    qreal m_endingPanProgress    = 0.0;
-    qreal m_endingApproach       = 0.0;
-    qreal m_endingTextOpacity    = 0.0;
-    QPointF m_endingShakeOffset;
+    int   m_hyperspaceTick = 0;
+    QPointF m_hyperspaceShakeOffset;
     std::vector<HyperParticle> m_hyperParticles;
+
+    // Outro phase
+    int   m_outroTick = 0;
 };

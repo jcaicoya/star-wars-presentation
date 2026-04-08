@@ -12,6 +12,8 @@ struct CrawlContent {
     QString     title;
     QString     subtitle;
     QStringList bodyLines;
+    QString     planetHeader;
+    QString     finalSentence;
 };
 
 struct Star {

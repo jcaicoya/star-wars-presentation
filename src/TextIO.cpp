@@ -133,6 +133,12 @@ CrawlContent parseContent(const QString &rawText) {
     if (sections.contains(QStringLiteral("body")))
         content.bodyLines = sections[QStringLiteral("body")];
 
+    if (sections.contains(QStringLiteral("planetheader")))
+        content.planetHeader = trim(sections[QStringLiteral("planetheader")]).join(QLatin1Char('\n'));
+
+    if (sections.contains(QStringLiteral("finalsentence")))
+        content.finalSentence = trim(sections[QStringLiteral("finalsentence")]).join(QLatin1Char('\n'));
+
     return content;
 }
 

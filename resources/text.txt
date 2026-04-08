@@ -30,3 +30,9 @@ race toward launch, determined
 to deliver a presentation worthy
 of inspiring colleagues across
 the entire company...
+
+[planetheader]
+The three guiding stars
+
+[finalsentence]
+May the AI be with you!
