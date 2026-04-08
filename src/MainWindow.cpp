@@ -14,7 +14,6 @@
 #include <QShortcut>
 #include <QSizePolicy>
 #include <QStackedWidget>
-#include <QTabWidget>
 #include <QTextDocument>
 #include <QToolBar>
 #include <QToolButton>
@@ -57,15 +56,12 @@ MainWindow::MainWindow() {
 
     m_liveAction = toolbar->addAction(QStringLiteral("Live"));
     m_liveAction->setCheckable(true);
-    m_editAction = toolbar->addAction(QStringLiteral("Edit"));
-    m_editAction->setCheckable(true);
     m_videoGameAction = toolbar->addAction(QStringLiteral("Video game"));
     m_videoGameAction->setCheckable(true);
 
     auto *modeGroup = new QActionGroup(this);
     modeGroup->setExclusive(true);
     modeGroup->addAction(m_liveAction);
-    modeGroup->addAction(m_editAction);
     modeGroup->addAction(m_videoGameAction);
 
     toolbar->addSeparator();
@@ -81,10 +77,17 @@ MainWindow::MainWindow() {
     displayGroup->addAction(m_windowedAction);
 
     configureAction(m_liveAction, QStringLiteral("Live"), QKeySequence(QStringLiteral("Ctrl+L")));
-    configureAction(m_editAction, QStringLiteral("Edit"), QKeySequence(QStringLiteral("Ctrl+E")));
     configureAction(m_videoGameAction, QStringLiteral("Video game"), QKeySequence(QStringLiteral("Ctrl+G")));
     configureAction(m_fullscreenAction, QStringLiteral("Full screen"), QKeySequence(QStringLiteral("Ctrl+1")));
     configureAction(m_windowedAction, QStringLiteral("Current size"), QKeySequence(QStringLiteral("Ctrl+2")));
+
+    toolbar->addSeparator();
+
+    m_editTextAction = toolbar->addAction(QStringLiteral("Edit text"));
+    m_editStarsAction = toolbar->addAction(QStringLiteral("Edit stars"));
+
+    configureAction(m_editTextAction, QStringLiteral("Edit text"), QKeySequence(QStringLiteral("Ctrl+E")));
+    configureAction(m_editStarsAction, QStringLiteral("Edit stars"), {});
 
     toolbar->addSeparator();
 
@@ -102,22 +105,33 @@ MainWindow::MainWindow() {
     configureAction(m_particlesAction, QStringLiteral("Particles"), QKeySequence(QStringLiteral("Ctrl+4")));
 
     connect(m_tunnelAction, &QAction::triggered, this, [this]() {
+        if (!leaveEditor()) return;
         m_hyperspaceMode = 0;
         refreshModeUi();
     });
     connect(m_particlesAction, &QAction::triggered, this, [this]() {
+        if (!leaveEditor()) return;
         m_hyperspaceMode = 1;
         refreshModeUi();
     });
 
-    connect(m_liveAction, &QAction::triggered, this, [this]() { activateMode(StartupMode::Live); });
-    connect(m_editAction, &QAction::triggered, this, [this]() { activateMode(StartupMode::Edit); });
-    connect(m_videoGameAction, &QAction::triggered, this, [this]() { activateMode(StartupMode::VideoGame); });
+    connect(m_liveAction, &QAction::triggered, this, [this]() {
+        if (!leaveEditor()) return;
+        activateMode(StartupMode::Live);
+    });
+    connect(m_videoGameAction, &QAction::triggered, this, [this]() {
+        if (!leaveEditor()) return;
+        activateMode(StartupMode::VideoGame);
+    });
+    connect(m_editTextAction, &QAction::triggered, this, [this]() { openEditor(0); });
+    connect(m_editStarsAction, &QAction::triggered, this, [this]() { openEditor(1); });
     connect(m_windowedAction, &QAction::triggered, this, [this]() {
+        if (!leaveEditor()) return;
         m_startFullscreen = false;
         refreshModeUi();
     });
     connect(m_fullscreenAction, &QAction::triggered, this, [this]() {
+        if (!leaveEditor()) return;
         m_startFullscreen = true;
         refreshModeUi();
     });
@@ -126,16 +140,17 @@ MainWindow::MainWindow() {
     setCentralWidget(m_pages);
 
     buildLauncherPage();
-    buildEditorPage();
+    buildTextEditorPage();
+    buildStarsEditorPage();
     ensureCrawlWindow();
 
     connect(m_editor->document(), &QTextDocument::modificationChanged, this, [this](bool) {
         m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->isModified();
-        setStatusForCurrentPath(currentEditingStatus());
+        updateStatusLabels();
     });
     connect(m_starsEditor, &StarsEditorWidget::modificationChanged, this, [this](bool) {
         m_hasUnsavedChanges = m_editor->document()->isModified() || m_starsEditor->isModified();
-        setStatusForCurrentPath(currentEditingStatus());
+        updateStatusLabels();
     });
 
     auto *saveShortcut = new QShortcut(QKeySequence::Save, this);
@@ -145,7 +160,7 @@ MainWindow::MainWindow() {
 
     loadIntoEditor();
     applyStartupDefaults();
-    setStatusForCurrentPath(QStringLiteral("Loaded"));
+    updateStatusLabels();
     refreshModeUi();
 }
 
@@ -177,36 +192,21 @@ void MainWindow::applyStartupDefaults() {
     m_startFullscreen = true;
 }
 
-void MainWindow::buildEditorPage() {
-    m_editorPage = new QWidget(this);
-    auto *rootLayout = new QVBoxLayout(m_editorPage);
-    rootLayout->setContentsMargins(16, 16, 16, 16);
-    rootLayout->setSpacing(12);
+void MainWindow::buildTextEditorPage() {
+    const QString statusStyle = QStringLiteral("QLabel { color: #aab7c5; font: 11pt 'Segoe UI'; }");
 
-    m_statusLabel = new QLabel(m_editorPage);
-    m_statusLabel->setMinimumWidth(320);
-    m_statusLabel->setStyleSheet("QLabel { color: #aab7c5; font: 11pt 'Segoe UI'; }");
+    m_textEditorPage = new QWidget(this);
+    auto *layout = new QVBoxLayout(m_textEditorPage);
+    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setSpacing(12);
 
-    auto *launchButton = new QPushButton(QStringLiteral("Launch selected presentation"), m_editorPage);
-    launchButton->setStyleSheet(
-        "QPushButton {"
-        "background: #f0b23b;"
-        "color: #101824;"
-        "border: none;"
-        "border-radius: 12px;"
-        "padding: 12px 18px;"
-        "font: 700 12pt 'Segoe UI';"
-        "}"
-        "QPushButton:hover { background: #f6c157; }"
-    );
+    m_textStatusLabel = new QLabel(m_textEditorPage);
+    m_textStatusLabel->setMinimumWidth(320);
+    m_textStatusLabel->setStyleSheet(statusStyle);
+    layout->addWidget(m_textStatusLabel);
 
-    auto *toolbarLayout = new QHBoxLayout();
-    toolbarLayout->setSpacing(10);
-    toolbarLayout->addWidget(launchButton);
-    toolbarLayout->addStretch(1);
-    toolbarLayout->addWidget(m_statusLabel);
-
-    const QString editorStyle =
+    m_editor = new QPlainTextEdit(m_textEditorPage);
+    m_editor->setStyleSheet(
         "QPlainTextEdit {"
         "background: #161616;"
         "color: #f1f1f1;"
@@ -215,28 +215,29 @@ void MainWindow::buildEditorPage() {
         "padding: 12px;"
         "selection-background-color: #404040;"
         "}"
-    ;
-
-    m_editorTabs = new QTabWidget(m_editorPage);
-    m_editorTabs->setStyleSheet(
-        "QTabWidget::pane { border: 1px solid #2c3642; background: #10151b; }"
-        "QTabBar::tab { background: #16202b; color: #bfcbd7; padding: 10px 16px; margin-right: 4px; border-top-left-radius: 8px; border-top-right-radius: 8px; }"
-        "QTabBar::tab:selected { background: #24384d; color: #f4fbff; }"
     );
+    layout->addWidget(m_editor, 1);
 
-    m_editor = new QPlainTextEdit(m_editorPage);
-    m_editor->setStyleSheet(editorStyle);
-    m_starsEditor = new StarsEditorWidget(m_editorPage);
+    m_pages->addWidget(m_textEditorPage);
+}
 
-    m_editorTabs->addTab(m_editor, QStringLiteral("text.txt"));
-    m_editorTabs->addTab(m_starsEditor, QStringLiteral("Stars"));
+void MainWindow::buildStarsEditorPage() {
+    const QString statusStyle = QStringLiteral("QLabel { color: #aab7c5; font: 11pt 'Segoe UI'; }");
 
-    rootLayout->addLayout(toolbarLayout);
-    rootLayout->addWidget(m_editorTabs, 1);
+    m_starsEditorPage = new QWidget(this);
+    auto *layout = new QVBoxLayout(m_starsEditorPage);
+    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setSpacing(12);
 
-    connect(launchButton, &QPushButton::clicked, this, [this]() { enterShowMode(); });
+    m_starsStatusLabel = new QLabel(m_starsEditorPage);
+    m_starsStatusLabel->setMinimumWidth(320);
+    m_starsStatusLabel->setStyleSheet(statusStyle);
+    layout->addWidget(m_starsStatusLabel);
 
-    m_pages->addWidget(m_editorPage);
+    m_starsEditor = new StarsEditorWidget(m_starsEditorPage);
+    layout->addWidget(m_starsEditor, 1);
+
+    m_pages->addWidget(m_starsEditorPage);
 }
 
 void MainWindow::buildLauncherPage() {
@@ -303,9 +304,6 @@ void MainWindow::buildLauncherPage() {
     m_liveCard = makeCard(
         QStringLiteral("Live mode\n\nIntro, crawl, and the guided star sequence."),
         180);
-    m_editCard = makeCard(
-        QStringLiteral("Edit mode\n\nOpen the editor directly and refine the source text."),
-        180);
     m_videoGameCard = makeCard(
         QStringLiteral("Video game mode\n\nSkip the crawl and pilot the ship through the star map."),
         180);
@@ -313,15 +311,12 @@ void MainWindow::buildLauncherPage() {
     auto *modeGroup = new QButtonGroup(this);
     modeGroup->setExclusive(true);
     modeGroup->addButton(m_liveCard);
-    modeGroup->addButton(m_editCard);
     modeGroup->addButton(m_videoGameCard);
 
     connect(m_liveCard, &QToolButton::clicked, this, [this]() { activateMode(StartupMode::Live); });
-    connect(m_editCard, &QToolButton::clicked, this, [this]() { activateMode(StartupMode::Edit); });
     connect(m_videoGameCard, &QToolButton::clicked, this, [this]() { activateMode(StartupMode::VideoGame); });
 
     modeRow->addWidget(m_liveCard);
-    modeRow->addWidget(m_editCard);
     modeRow->addWidget(m_videoGameCard);
     layout->addLayout(modeRow, 1);
 
@@ -352,6 +347,24 @@ void MainWindow::buildLauncherPage() {
     displayRow->addWidget(m_windowedCard);
     layout->addLayout(displayRow);
 
+    auto *editorRow = new QHBoxLayout();
+    editorRow->setSpacing(18);
+    m_editTextCard = makeCard(
+        QStringLiteral("Edit text\n\nOpen the text editor to refine the crawl content."),
+        126);
+    m_editTextCard->setCheckable(false);
+    m_editStarsCard = makeCard(
+        QStringLiteral("Edit stars\n\nOpen the star editor to adjust the star map."),
+        126);
+    m_editStarsCard->setCheckable(false);
+
+    connect(m_editTextCard, &QToolButton::clicked, this, [this]() { openEditor(0); });
+    connect(m_editStarsCard, &QToolButton::clicked, this, [this]() { openEditor(1); });
+
+    editorRow->addWidget(m_editTextCard);
+    editorRow->addWidget(m_editStarsCard);
+    layout->addLayout(editorRow);
+
     auto *hyperRow = new QHBoxLayout();
     hyperRow->setSpacing(18);
     m_tunnelCard = makeCard(
@@ -380,14 +393,7 @@ void MainWindow::buildLauncherPage() {
     layout->addLayout(hyperRow);
 
     auto *launchButton = new QPushButton(QStringLiteral("Open selected mode"), m_launcherPage);
-    connect(launchButton, &QPushButton::clicked, this, [this]() {
-        if (m_startupMode == StartupMode::Edit) {
-            m_pages->setCurrentWidget(m_editorPage);
-            refreshModeUi();
-            return;
-        }
-        enterShowMode();
-    });
+    connect(launchButton, &QPushButton::clicked, this, [this]() { enterShowMode(); });
     layout->addWidget(launchButton, 0, Qt::AlignLeft);
 
     m_pages->addWidget(m_launcherPage);
@@ -406,10 +412,14 @@ void MainWindow::loadIntoEditor() {
     m_hasUnsavedChanges = false;
 }
 
-void MainWindow::setStatusForCurrentPath(const QString &prefix, const QString &overridePath) {
-    const QString path = overridePath.isEmpty() ? editableTextPath() : overridePath;
-    m_statusLabel->setText(
-        QStringLiteral("%1: %2").arg(prefix, path.isEmpty() ? resourceTextPath() : path));
+void MainWindow::updateStatusLabels() {
+    const QString prefix = currentEditingStatus();
+    const QString textPath = editableTextPath();
+    if (m_textStatusLabel != nullptr)
+        m_textStatusLabel->setText(QStringLiteral("%1: %2").arg(prefix,
+            textPath.isEmpty() ? resourceTextPath() : textPath));
+    if (m_starsStatusLabel != nullptr)
+        m_starsStatusLabel->setText(QStringLiteral("%1: stars.json").arg(prefix));
 }
 
 void MainWindow::configureCrawlWindow(CrawlWindow *window) {
@@ -425,7 +435,7 @@ void MainWindow::configureCrawlWindow(CrawlWindow *window) {
         activateWindow();
         m_pages->setCurrentWidget(m_launcherPage);
         refreshModeUi();
-        setStatusForCurrentPath(currentEditingStatus());
+        updateStatusLabels();
     });
 }
 
@@ -457,7 +467,7 @@ bool MainWindow::saveEditorContents() {
     m_editor->document()->setModified(false);
     m_starsEditor->setModified(false);
     m_hasUnsavedChanges = false;
-    setStatusForCurrentPath(QStringLiteral("Saved"), textSavedPath);
+    updateStatusLabels();
     return true;
 }
 
@@ -477,6 +487,21 @@ bool MainWindow::confirmDiscardOrSave() {
     return true;
 }
 
+void MainWindow::openEditor(const int tabIndex) {
+    m_pages->setCurrentWidget(tabIndex == 0 ? m_textEditorPage : m_starsEditorPage);
+    updateStatusLabels();
+}
+
+bool MainWindow::leaveEditor() {
+    const QWidget *current = m_pages->currentWidget();
+    if (current != m_textEditorPage && current != m_starsEditorPage)
+        return true;
+    if (!confirmDiscardOrSave())
+        return false;
+    m_pages->setCurrentWidget(m_launcherPage);
+    return true;
+}
+
 void MainWindow::enterShowMode() {
     ensureCrawlWindow();
     m_crawlWindow->setContent(parseContent(m_editor->toPlainText()));
@@ -491,18 +516,16 @@ void MainWindow::enterShowMode() {
             : CrawlWindow::HyperspaceMode::Particles);
     hide();
     m_crawlWindow->openShowWindow(m_startFullscreen, m_startFullscreen ? QSize() : size());
-    setStatusForCurrentPath(QStringLiteral("Showing"));
+    updateStatusLabels();
 }
 
 void MainWindow::refreshModeUi() {
     if (m_liveAction != nullptr)       m_liveAction->setChecked(m_startupMode == StartupMode::Live);
-    if (m_editAction != nullptr)       m_editAction->setChecked(m_startupMode == StartupMode::Edit);
     if (m_videoGameAction != nullptr)  m_videoGameAction->setChecked(m_startupMode == StartupMode::VideoGame);
     if (m_windowedAction != nullptr)   m_windowedAction->setChecked(!m_startFullscreen);
     if (m_fullscreenAction != nullptr) m_fullscreenAction->setChecked(m_startFullscreen);
 
     if (m_liveCard != nullptr)         m_liveCard->setChecked(m_startupMode == StartupMode::Live);
-    if (m_editCard != nullptr)         m_editCard->setChecked(m_startupMode == StartupMode::Edit);
     if (m_videoGameCard != nullptr)    m_videoGameCard->setChecked(m_startupMode == StartupMode::VideoGame);
     if (m_windowedCard != nullptr)     m_windowedCard->setChecked(!m_startFullscreen);
     if (m_fullscreenCard != nullptr)   m_fullscreenCard->setChecked(m_startFullscreen);
@@ -510,11 +533,4 @@ void MainWindow::refreshModeUi() {
     if (m_particlesAction != nullptr)  m_particlesAction->setChecked(m_hyperspaceMode == 1);
     if (m_tunnelCard != nullptr)       m_tunnelCard->setChecked(m_hyperspaceMode == 0);
     if (m_particlesCard != nullptr)    m_particlesCard->setChecked(m_hyperspaceMode == 1);
-
-    if (m_pages != nullptr) {
-        if (m_startupMode == StartupMode::Edit)
-            m_pages->setCurrentWidget(m_editorPage);
-        else if (m_pages->currentWidget() != m_editorPage || !isHidden())
-            m_pages->setCurrentWidget(m_launcherPage);
-    }
 }

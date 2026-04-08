@@ -6,7 +6,6 @@
 class QLabel;
 class QPlainTextEdit;
 class QStackedWidget;
-class QTabWidget;
 class QToolButton;
 class CrawlWindow;
 class StarsEditorWidget;
@@ -17,7 +16,6 @@ class MainWindow final : public QMainWindow {
 public:
     enum class StartupMode {
         Live,
-        Edit,
         VideoGame
     };
 
@@ -30,37 +28,43 @@ private:
     QString currentEditingStatus() const;
     void    activateMode(StartupMode mode);
     void    applyStartupDefaults();
-    void    buildEditorPage();
+    void    buildTextEditorPage();
+    void    buildStarsEditorPage();
     void    buildLauncherPage();
     void    configureAction(QAction *action, const QString &text, const QKeySequence &shortcut);
     void    loadIntoEditor();
-    void    setStatusForCurrentPath(const QString &prefix, const QString &overridePath = {});
+    void    updateStatusLabels();
     void    configureCrawlWindow(CrawlWindow *window);
     void    ensureCrawlWindow();
     bool    saveEditorContents();
     bool    confirmDiscardOrSave();
+    void    openEditor(int tabIndex);
+    bool    leaveEditor();
     void    enterShowMode();
     void    refreshModeUi();
 
-    QStackedWidget *m_pages           = nullptr;
-    QWidget        *m_launcherPage    = nullptr;
-    QWidget        *m_editorPage      = nullptr;
-    QTabWidget     *m_editorTabs      = nullptr;
-    QPlainTextEdit *m_editor          = nullptr;
-    StarsEditorWidget *m_starsEditor  = nullptr;
-    QLabel         *m_statusLabel     = nullptr;
+    QStackedWidget *m_pages              = nullptr;
+    QWidget        *m_launcherPage       = nullptr;
+    QWidget        *m_textEditorPage     = nullptr;
+    QWidget        *m_starsEditorPage    = nullptr;
+    QPlainTextEdit *m_editor             = nullptr;
+    StarsEditorWidget *m_starsEditor     = nullptr;
+    QLabel         *m_textStatusLabel    = nullptr;
+    QLabel         *m_starsStatusLabel   = nullptr;
     QLabel         *m_launcherTitle   = nullptr;
     QLabel         *m_launcherSubtitle= nullptr;
     QToolButton    *m_liveCard        = nullptr;
-    QToolButton    *m_editCard        = nullptr;
     QToolButton    *m_videoGameCard   = nullptr;
+    QToolButton    *m_editTextCard    = nullptr;
+    QToolButton    *m_editStarsCard   = nullptr;
     QToolButton    *m_windowedCard    = nullptr;
     QToolButton    *m_fullscreenCard  = nullptr;
     QToolButton    *m_tunnelCard      = nullptr;
     QToolButton    *m_particlesCard   = nullptr;
     QAction        *m_liveAction      = nullptr;
-    QAction        *m_editAction      = nullptr;
     QAction        *m_videoGameAction = nullptr;
+    QAction        *m_editTextAction  = nullptr;
+    QAction        *m_editStarsAction = nullptr;
     QAction        *m_windowedAction  = nullptr;
     QAction        *m_fullscreenAction= nullptr;
     QAction        *m_tunnelAction    = nullptr;
