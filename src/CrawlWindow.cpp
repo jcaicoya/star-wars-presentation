@@ -632,13 +632,33 @@ void CrawlWindow::paintLogo(QPainter &painter) {
     const qreal lineH = metrics.height();
     const qreal textH = lineH * logoLines.size();
 
+    // Build outline path for each line, centered
+    QPainterPath logoPath;
+    qreal lineY = -textH * 0.5 + metrics.ascent();
+    for (const QString &line : logoLines) {
+        const qreal lineW = metrics.horizontalAdvance(line);
+        logoPath.addText(QPointF(-lineW * 0.5, lineY), font, line);
+        lineY += lineH;
+    }
+
+    const int clampedAlpha = std::clamp(alpha, 0, 255);
+    const qreal strokeWidth = std::max(1.0, baseFontSize * 0.04);
+
     painter.save();
     painter.translate(width() * 0.5, height() * 0.5);
     painter.scale(scale, scale);
-    painter.setFont(font);
-    painter.setPen(QColor(255, 220, 0, std::clamp(alpha, 0, 255)));
-    painter.drawText(QRectF(-textW * 0.5, -textH * 0.5, textW, textH),
-                     Qt::AlignCenter, m_content.logo);
+    painter.setBrush(Qt::NoBrush);
+
+    // Outer glow
+    painter.setPen(QPen(QColor(255, 200, 0, clampedAlpha / 4), strokeWidth * 3.0,
+                        Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.drawPath(logoPath);
+
+    // Main outline
+    painter.setPen(QPen(QColor(255, 220, 0, clampedAlpha), strokeWidth,
+                        Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.drawPath(logoPath);
+
     painter.restore();
 }
 
