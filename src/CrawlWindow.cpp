@@ -428,7 +428,15 @@ void CrawlWindow::tickSpaceflight() {
                 m_shipVelocity = QVector3D();
                 m_liveFlight.legActive = false;
                 m_liveFlight.targetReached = true;
+                m_liveFlight.legTick = 0;
             }
+        }
+
+        if (m_liveFlight.targetReached
+            && m_liveFlight.autoTargetIndex + 1 >= static_cast<int>(m_goalStars.size())) {
+            ++m_liveFlight.legTick;
+            if (m_liveFlight.legTick >= 90)
+                transitionTo(Phase::Hyperspace);
         }
 
         recycleSpaceStars();
