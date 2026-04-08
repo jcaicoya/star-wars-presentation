@@ -201,6 +201,10 @@ void CrawlWindow::mousePressEvent(QMouseEvent *event) {
         advanceToNextPhase();
         return;
     }
+    if (event->button() == Qt::RightButton) {
+        retreatToPreviousPhase();
+        return;
+    }
     QWidget::mousePressEvent(event);
 }
 
@@ -213,7 +217,22 @@ void CrawlWindow::keyPressEvent(QKeyEvent *event) {
         advanceToNextPhase();
         return;
     }
-    if (m_phase == Phase::Spaceflight) {
+    if (m_showMode == ShowMode::Live) {
+        switch (event->key()) {
+        case Qt::Key_Right: advanceToNextPhase();     return;
+        case Qt::Key_Left:  retreatToPreviousPhase(); return;
+        case Qt::Key_I:
+        case Qt::Key_1:     transitionTo(Phase::Intro);       return;
+        case Qt::Key_S:
+        case Qt::Key_2:     transitionTo(Phase::Spaceflight); return;
+        case Qt::Key_H:
+        case Qt::Key_3:     transitionTo(Phase::Hyperspace);  return;
+        case Qt::Key_O:
+        case Qt::Key_4:     transitionTo(Phase::Outro);       return;
+        default: break;
+        }
+    }
+    if (m_phase == Phase::Spaceflight && m_showMode != ShowMode::Live) {
         switch (event->key()) {
         case Qt::Key_Left:  m_input.left = true;     return;
         case Qt::Key_Right: m_input.right = true;    return;
@@ -317,6 +336,42 @@ void CrawlWindow::advanceToNextPhase() {
     case Phase::Hyperspace:
         break;
     case Phase::Outro:
+        break;
+    }
+}
+
+void CrawlWindow::retreatToPreviousPhase() {
+    if (m_showMode != ShowMode::Live)
+        return;
+
+    switch (m_phase) {
+    case Phase::Intro:
+        break;
+    case Phase::Logo:
+        transitionTo(Phase::Intro);
+        break;
+    case Phase::Crawl:
+        transitionTo(Phase::Logo);
+        break;
+    case Phase::Spaceflight:
+        if (m_liveFlight.autoTargetIndex > 0) {
+            --m_liveFlight.autoTargetIndex;
+            m_liveFlight.targetReached = false;
+            m_liveFlight.legStart = m_shipPosition;
+            m_liveFlight.legEnd = m_goalStars[m_liveFlight.autoTargetIndex].position + QVector3D(0.0f, kGoalStopOffsetY, kGoalApproachZ);
+            m_liveFlight.legTick = 0;
+            const float distance = (m_liveFlight.legEnd - m_liveFlight.legStart).length();
+            m_liveFlight.legDuration = std::max(kMinLegDuration, static_cast<int>(distance / kGoalSpeedDivisor));
+            m_liveFlight.legActive = true;
+        } else {
+            transitionTo(Phase::Crawl);
+        }
+        break;
+    case Phase::Hyperspace:
+        transitionTo(Phase::Spaceflight);
+        break;
+    case Phase::Outro:
+        transitionTo(Phase::Hyperspace);
         break;
     }
 }

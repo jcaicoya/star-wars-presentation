@@ -109,6 +109,7 @@ private:
     // ── Phase management ─────────────────────────────────────────────────────
     void transitionTo(Phase phase);
     void advanceToNextPhase();
+    void retreatToPreviousPhase();
 
     // Per-phase tick (advances animation state; called every ~16 ms)
     void tickIntro();
