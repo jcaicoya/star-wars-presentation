@@ -41,7 +41,7 @@ public:
     void setGoalStars(const std::vector<StarDefinition> &stars);
     void setShowMode(ShowMode mode);
     void setHyperspaceMode(HyperspaceMode mode);
-    void openShowWindow(bool fullscreen = false);
+    void openShowWindow(bool fullscreen, QSize windowSize = {});
 
 signals:
     void closed();

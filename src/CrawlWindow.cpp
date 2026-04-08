@@ -143,11 +143,12 @@ void CrawlWindow::setHyperspaceMode(const HyperspaceMode mode) {
     m_hyperspaceMode = mode;
 }
 
-void CrawlWindow::openShowWindow(const bool fullscreen) {
-    if (!m_hasInitializedWindowGeometry) {
+void CrawlWindow::openShowWindow(const bool fullscreen, QSize windowSize) {
+    if (windowSize.isValid())
+        resize(windowSize);
+    else if (!m_hasInitializedWindowGeometry)
         resize(1280, 720);
-        m_hasInitializedWindowGeometry = true;
-    }
+    m_hasInitializedWindowGeometry = true;
     showNormal();
     if (fullscreen)
         setWindowState(windowState() | Qt::WindowFullScreen);
@@ -206,10 +207,6 @@ void CrawlWindow::mousePressEvent(QMouseEvent *event) {
 void CrawlWindow::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Escape) {
         close();
-        return;
-    }
-    if (event->key() == Qt::Key_F11) {
-        setWindowState(windowState() ^ Qt::WindowFullScreen);
         return;
     }
     if (event->key() == Qt::Key_Space) {

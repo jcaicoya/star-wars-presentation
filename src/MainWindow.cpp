@@ -25,6 +25,7 @@
 
 MainWindow::MainWindow() {
     setWindowTitle(QStringLiteral("StarWarsText"));
+    setMinimumSize(800, 600);
     resize(1180, 940);
 
     auto *toolbar = addToolBar(QStringLiteral("Modes"));
@@ -422,6 +423,9 @@ void MainWindow::configureCrawlWindow(CrawlWindow *window) {
         m_crawlWindow = nullptr;
     });
     connect(window, &CrawlWindow::closed, this, [this]() {
+        if (m_crawlWindow != nullptr && !m_crawlWindow->isFullScreen()) {
+            setGeometry(m_crawlWindow->geometry());
+        }
         showNormal();
         raise();
         activateWindow();
@@ -492,7 +496,7 @@ void MainWindow::enterShowMode() {
             ? CrawlWindow::HyperspaceMode::Tunnel
             : CrawlWindow::HyperspaceMode::Particles);
     hide();
-    m_crawlWindow->openShowWindow(m_startFullscreen);
+    m_crawlWindow->openShowWindow(m_startFullscreen, m_startFullscreen ? QSize() : size());
     setStatusForCurrentPath(QStringLiteral("Showing"));
 }
 
