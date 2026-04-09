@@ -669,7 +669,10 @@ void CrawlWindow::paintIntro(QPainter &painter) {
 
     painter.setFont(font);
     painter.setPen(QColor(100, 180, 220, alpha));
-    painter.drawText(rect(), Qt::AlignCenter, m_content.intro);
+    QFontMetrics fm(font);
+    QRect textBound = fm.boundingRect(rect(), Qt::AlignLeft, m_content.intro);
+    textBound.moveCenter(rect().center());
+    painter.drawText(textBound, Qt::AlignLeft, m_content.intro);
 }
 
 void CrawlWindow::paintLogo(QPainter &painter) {

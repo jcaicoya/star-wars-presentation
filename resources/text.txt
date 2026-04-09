@@ -1,5 +1,6 @@
 [intro]
-A long time ago, three weeks or so...
+A long time ago, two or three
+sprints or so...
 
 [logo]
 PROJECT
@@ -30,6 +31,8 @@ the speakers race toward launch,
 determined to share a few ideas
 worthy of inspiring colleagues
 across the entire company...
+
+
 
 
 

@@ -11,7 +11,7 @@
                 "z": 0
             },
             "radius": 5,
-            "text": "Move fast, don't run",
+            "text": "Steady Star",
             "type": "star"
         },
         {
@@ -25,7 +25,7 @@
                 "z": 778.7999877929688
             },
             "radius": 5.2,
-            "text": "Be creative",
+            "text": "Creative Star",
             "type": "star"
         },
         {
@@ -39,7 +39,7 @@
                 "z": 1557.5999755859375
             },
             "radius": 5.4,
-            "text": "Choose hope",
+            "text": "Caring Star",
             "type": "star"
         },
         {
