@@ -33,8 +33,9 @@ across the entire company...
 
 
 
+
 [planetheader]
-The three guiding stars
+Three stars to navigate by
 
 [finalsentence]
 May the AI be with you!
