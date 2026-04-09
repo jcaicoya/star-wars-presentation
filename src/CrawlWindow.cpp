@@ -447,7 +447,7 @@ void CrawlWindow::tickIntro() {
         transitionTo(Phase::Logo);
 }
 
-static constexpr int kLogoTotalTicks = 420; // ~6.7 s
+static constexpr int kLogoTotalTicks = 260; // ~4.2 s
 
 void CrawlWindow::tickLogo() {
     ++m_logoTick;
