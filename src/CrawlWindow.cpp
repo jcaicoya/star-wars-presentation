@@ -452,8 +452,7 @@ void CrawlWindow::tickLogo() {
 
 void CrawlWindow::tickCrawl() {
     m_crawlOffset += scrollStep();
-    const bool liveTimeoutReached = (m_showMode == ShowMode::Live && m_elapsedTimer.elapsed() >= 45'000);
-    if (liveTimeoutReached || m_crawlOffset >= m_crawlTriggerOffset)
+    if (m_crawlOffset >= m_crawlTriggerOffset)
         transitionTo(Phase::Spaceflight);
 }
 
