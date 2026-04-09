@@ -257,14 +257,15 @@ void CrawlWindow::keyPressEvent(QKeyEvent *event) {
         close();
         return;
     }
-    if (event->key() == Qt::Key_Space) {
+    if (event->key() == Qt::Key_Space || event->key() == Qt::Key_PageDown) {
         advanceToNextPhase();
         return;
     }
     if (m_showMode == ShowMode::Live) {
         switch (event->key()) {
-        case Qt::Key_Right: advanceToNextPhase();     return;
-        case Qt::Key_Left:  retreatToPreviousPhase(); return;
+        case Qt::Key_Right:  advanceToNextPhase();     return;
+        case Qt::Key_Left:
+        case Qt::Key_PageUp: retreatToPreviousPhase(); return;
         case Qt::Key_I:
         case Qt::Key_1:     transitionTo(Phase::Intro);       return;
         case Qt::Key_S:
