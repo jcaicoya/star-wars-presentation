@@ -1156,7 +1156,7 @@ void CrawlWindow::paintOutro(QPainter &painter) {
         int alpha;
         if (m_outroFinalTick < kFinalFadeIn) {
             alpha = (m_outroFinalTick * 255) / kFinalFadeIn;
-        } else if (m_outroFinalTick < kFinalFadeIn + kFinalHold) {
+        } else if (m_showMode == ShowMode::Live || m_outroFinalTick < kFinalFadeIn + kFinalHold) {
             alpha = 255;
         } else {
             const int fadeOutTick = m_outroFinalTick - kFinalFadeIn - kFinalHold;
