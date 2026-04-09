@@ -6,6 +6,7 @@
 #include <QAction>
 #include <QButtonGroup>
 #include <QCloseEvent>
+#include <QKeyEvent>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -185,6 +186,14 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     if (m_crawlWindow != nullptr)
         m_crawlWindow->close();
     QMainWindow::closeEvent(event);
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event) {
+    if (event->key() == Qt::Key_F5 && m_pages->currentWidget() == m_launcherPage) {
+        enterShowMode();
+        return;
+    }
+    QMainWindow::keyPressEvent(event);
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────

@@ -254,6 +254,8 @@ void CrawlWindow::mousePressEvent(QMouseEvent *event) {
 
 void CrawlWindow::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Escape) {
+        if (m_showMode == ShowMode::Live)
+            return;
         close();
         return;
     }
@@ -262,6 +264,8 @@ void CrawlWindow::keyPressEvent(QKeyEvent *event) {
         return;
     }
     if (m_showMode == ShowMode::Live) {
+        if (event->key() == Qt::Key_F5)
+            return;
         switch (event->key()) {
         case Qt::Key_Right:  advanceToNextPhase();     return;
         case Qt::Key_Left:
